@@ -108,6 +108,34 @@
       const [draggingId, setDraggingId] = useState(null);
       const dragOffset = useRef({ x: 0, y: 0 });
 
+      // Storleksändrings-logik (Dra ut rutorna)
+      const [resizingId, setResizingId] = useState(null);
+      const resizeStart = useRef({ startX: 0, startY: 0, startW: 350, startH: 250 });
+
+      const onResizeDown = (id, e) => {
+        e.stopPropagation();
+        e.preventDefault();
+        const clientX = e.clientX ?? e.touches?.[0]?.clientX;
+        const clientY = e.clientY ?? e.touches?.[0]?.clientY;
+        const widget = widgets.find(w => w.id === id);
+        if (!widget || clientX === undefined) return;
+        
+        setTopZ(prev => prev + 1);
+        setWidgets(prev => prev.map(w => w.id === id ? { ...w, z: topZ + 1 } : w));
+        
+        // Hämta aktuell faktisk höjd på elementet
+        const elem = document.getElementById(`widget-${id}`);
+        const currentH = elem ? elem.offsetHeight : (widget.h || 250);
+
+        resizeStart.current = {
+          startX: clientX,
+          startY: clientY,
+          startW: widget.w || 350,
+          startH: currentH
+        };
+        setResizingId(id);
+      };
+
       const onPointerDown = (id, e) => {
         if (['INPUT', 'BUTTON', 'TEXTAREA', 'SELECT', 'SVG'].some(tag => e.target.closest(tag))) return;
         const clientX = e.clientX ?? e.touches?.[0]?.clientX;
@@ -146,6 +174,37 @@
           window.removeEventListener('touchend', handleUp);
         };
       }, [draggingId]);
+
+      useEffect(() => {
+        const handleResizeMove = (e) => {
+          if (!resizingId) return;
+          const clientX = e.clientX ?? e.touches?.[0]?.clientX;
+          const clientY = e.clientY ?? e.touches?.[0]?.clientY;
+          if (clientX === undefined) return;
+
+          const dx = clientX - resizeStart.current.startX;
+          const dy = clientY - resizeStart.current.startY;
+          
+          const newW = Math.max(220, Math.min(window.innerWidth - 30, resizeStart.current.startW + dx));
+          const newH = Math.max(140, Math.min(window.innerHeight - 80, resizeStart.current.startH + dy));
+
+          setWidgets(prev => prev.map(w => w.id === resizingId ? { ...w, w: newW, h: newH } : w));
+        };
+        const handleResizeUp = () => setResizingId(null);
+
+        if (resizingId) {
+          window.addEventListener('mousemove', handleResizeMove);
+          window.addEventListener('mouseup', handleResizeUp);
+          window.addEventListener('touchmove', handleResizeMove, { passive: false });
+          window.addEventListener('touchend', handleResizeUp);
+        }
+        return () => {
+          window.removeEventListener('mousemove', handleResizeMove);
+          window.removeEventListener('mouseup', handleResizeUp);
+          window.removeEventListener('touchmove', handleResizeMove);
+          window.removeEventListener('touchend', handleResizeUp);
+        };
+      }, [resizingId]);
 
       const updateWidgetData = (id, newProps) => {
         setWidgets(prev => prev.map(w => w.id === id ? { ...w, data: { ...w.data, ...newProps } } : w));
@@ -196,7 +255,7 @@
              style={{ background: bg.startsWith('linear') ? bg : `url(${bg}) center/cover no-repeat fixed` }}>
           <div className="absolute inset-0 bg-black/30 pointer-events-none" />
 
-          {}
+          {/* Toppmenyrad */}
           <header className="absolute top-0 left-0 right-0 h-16 bg-black/40 backdrop-blur-md flex items-center justify-between px-6 z-50 text-white shadow-lg border-b border-white/10">
             <h1 className="font-extrabold text-xl tracking-wide flex items-center gap-2 drop-shadow-md">
               <span className="text-2xl">🏫</span> {t.appTitle}
@@ -212,16 +271,23 @@
               <button onClick={() => setShowCloudModal(true)} className="px-4 py-1.5 bg-indigo-600 hover:bg-indigo-500 rounded-xl text-xs font-bold shadow-lg transition active:scale-95 flex items-center gap-2">
                 {currentUser ? `☁️ ${currentUser.displayName?.split(' ')[0] || 'Mina Mallar'}` : `☁️ ${t.templates}`}
               </button>
-              <button onClick={handleReset} className={`px-3 py-1.5 rounded-xl text-xs font-bold transition active:scale-95 border ${resetConfirm ? 'bg-red-600 text-white border-red-500 animate-pulse' : 'bg-white/10 hover:bg-white/20 text-white border-white/20'}`}>
+              <button onClick={handleReset} className={`px-3 py-1.5 rounded-xl text-xs font-bold transition active:scale-95 border ${resetConfirm ? 'bg-rose-600 text-white border-rose-500 animate-pulse' : 'bg-white/10 hover:bg-white/20 text-white border-white/20'}`}>
                 {resetConfirm ? t.sure : `🗑️ ${t.clear}`}
               </button>
             </div>
           </header>
 
-          {}
+          {/* Huvudyta där rutor placeras */}
           <main className="absolute inset-0 pt-16 pb-24 overflow-hidden">
             {widgets.map(widget => (
-              <WidgetBox key={widget.id} widget={widget} title={t[widget.type] || widget.type} onDown={(e) => onPointerDown(widget.id, e)} onClose={() => removeWidget(widget.id)}>
+              <WidgetBox 
+                key={widget.id} 
+                widget={widget} 
+                title={t[widget.type] || widget.type} 
+                onDown={(e) => onPointerDown(widget.id, e)} 
+                onResizeDown={(e) => onResizeDown(widget.id, e)}
+                onClose={() => removeWidget(widget.id)}
+              >
                 {widget.type === 'agenda' && <AgendaWidget data={widget.data} update={(d) => updateWidgetData(widget.id, d)} t={t} />}
                 {widget.type === 'timer' && <TimerWidget data={widget.data} update={(d) => updateWidgetData(widget.id, d)} t={t} />}
                 {widget.type === 'traffic' && <TrafficWidget data={widget.data} update={(d) => updateWidgetData(widget.id, d)} />}
@@ -427,17 +493,117 @@
     }
 
     function BgModal({ currentBg, onSelect, onClose, t }) {
+      const [urlInput, setUrlInput] = useState('');
+      const [uploading, setUploading] = useState(false);
+
+      // Hantera lokal bilduppladdning från datorn med automatisk komprimering
+      const handleFileUpload = (e) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+
+        setUploading(true);
+        const reader = new FileReader();
+        reader.onload = (event) => {
+          const img = new Image();
+          img.onload = () => {
+            // Skala ner bilden om den är jättestor för att spara minne och rymmas i molnet
+            const maxDimension = 1920;
+            let targetW = img.width;
+            let targetH = img.height;
+
+            if (targetW > maxDimension || targetH > maxDimension) {
+              if (targetW > targetH) {
+                targetH = Math.round((targetH * maxDimension) / targetW);
+                targetW = maxDimension;
+              } else {
+                targetW = Math.round((targetW * maxDimension) / targetH);
+                targetH = maxDimension;
+              }
+            }
+
+            const canvas = document.createElement('canvas');
+            canvas.width = targetW;
+            canvas.height = targetH;
+            const ctx = canvas.getContext('2d');
+            ctx.drawImage(img, 0, 0, targetW, targetH);
+
+            // Skapa optimerad JPEG
+            const optimizedDataUrl = canvas.toDataURL('image/jpeg', 0.85);
+            onSelect(optimizedDataUrl);
+            setUploading(false);
+          };
+          img.src = event.target.result;
+        };
+        reader.readAsDataURL(file);
+      };
+
+      const handleUrlSubmit = (e) => {
+        e.preventDefault();
+        if (urlInput.trim()) {
+          onSelect(urlInput.trim());
+        }
+      };
+
       return (
         <div className="fixed inset-0 z-[100] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-white rounded-3xl p-6 w-full max-w-lg shadow-2xl animate-in fade-in">
+          <div className="bg-white rounded-3xl p-6 w-full max-w-lg shadow-2xl animate-in fade-in max-h-[90vh] overflow-y-auto">
             <div className="flex justify-between items-center mb-5 pb-2 border-b border-slate-100">
               <h2 className="text-xl font-bold text-slate-800 flex items-center gap-2">🎨 {t.changeBg}</h2>
-              <button onClick={onClose} className="w-8 h-8 flex items-center justify-center bg-slate-100 hover:bg-slate-200 rounded-full">✕</button>
+              <button onClick={onClose} className="w-8 h-8 flex items-center justify-center bg-slate-100 hover:bg-slate-200 rounded-full transition">✕</button>
             </div>
-            <div className="grid grid-cols-2 gap-3 mb-5 max-h-64 overflow-y-auto">
+
+            {/* Sektion: Ladda upp egen bild */}
+            <div className="space-y-3 mb-6 p-4 bg-slate-50 border border-slate-200 rounded-2xl">
+              <span className="text-xs font-bold text-slate-700 uppercase tracking-wider block">
+                Egen bakgrundsbild
+              </span>
+
+              <label className="w-full flex items-center justify-center gap-2.5 px-4 py-3 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 rounded-2xl font-bold text-xs cursor-pointer border-2 border-dashed border-indigo-200 hover:border-indigo-400 transition active:scale-95 text-center">
+                <span>📁</span>
+                <span>{uploading ? 'Behandlar bild...' : 'Välj bild från datorn / Chromebooken'}</span>
+                <input 
+                  type="file" 
+                  accept="image/*" 
+                  onChange={handleFileUpload} 
+                  disabled={uploading}
+                  className="hidden" 
+                />
+              </label>
+
+              {/* Eller klistra in länk */}
+              <form onSubmit={handleUrlSubmit} className="flex gap-2 pt-1">
+                <input 
+                  type="url" 
+                  value={urlInput} 
+                  onChange={(e) => setUrlInput(e.target.value)} 
+                  placeholder="Eller klistra in en bildlänk (https://...)" 
+                  className="flex-1 text-xs px-3 py-2 border-2 border-slate-200 rounded-xl outline-none focus:border-indigo-500 font-medium bg-white" 
+                />
+                <button 
+                  type="submit" 
+                  disabled={!urlInput.trim()} 
+                  className="px-3.5 py-2 bg-slate-800 hover:bg-slate-900 disabled:bg-slate-300 text-white rounded-xl text-xs font-bold transition active:scale-95 shrink-0"
+                >
+                  Använd
+                </button>
+              </form>
+            </div>
+
+            {/* Färdiga förvalda bakgrunder */}
+            <span className="text-xs font-bold text-slate-700 uppercase tracking-wider block mb-3">
+              Förvalda teman
+            </span>
+            <div className="grid grid-cols-2 gap-3 mb-2 max-h-60 overflow-y-auto pr-1">
               {BACKGROUNDS.map((b, i) => (
-                <button key={i} onClick={() => onSelect(b.url)} className={`h-28 rounded-2xl overflow-hidden relative border-4 text-left flex items-end transition ${currentBg === b.url ? 'border-indigo-500' : 'border-transparent hover:border-slate-300'}`} style={{ background: b.url.includes('gradient') ? b.url : `url(${b.url}) center/cover` }}>
-                  <span className="text-white text-xs font-bold drop-shadow-md bg-black/50 px-2.5 py-1 rounded-tr-lg w-full truncate">{b.name}</span>
+                <button 
+                  key={i} 
+                  onClick={() => onSelect(b.url)} 
+                  className={`h-24 rounded-2xl overflow-hidden relative border-4 text-left flex items-end transition active:scale-95 ${currentBg === b.url ? 'border-indigo-500' : 'border-transparent hover:border-slate-300'}`} 
+                  style={{ background: b.url.includes('gradient') ? b.url : `url(${b.url}) center/cover` }}
+                >
+                  <span className="text-white text-[11px] font-bold drop-shadow-md bg-black/60 px-2.5 py-1 rounded-tr-lg w-full truncate">
+                    {b.name}
+                  </span>
                 </button>
               ))}
             </div>
@@ -446,14 +612,53 @@
       );
     }
 
-    function WidgetBox({ widget, title, onDown, onClose, children }) {
+    function WidgetBox({ widget, title, onDown, onResizeDown, onClose, children }) {
       return (
-        <div className="absolute glass-panel rounded-3xl flex flex-col overflow-hidden shadow-xl" style={{ transform: `translate3d(${widget.x}px, ${widget.y}px, 0)`, width: widget.w, zIndex: widget.z }}>
-          <div onMouseDown={onDown} onTouchStart={onDown} className="flex justify-between items-center px-5 py-3 bg-slate-100/80 border-b border-slate-200 cursor-grab active:cursor-grabbing">
-            <span className="font-extrabold text-xs uppercase tracking-widest text-slate-600 pointer-events-none">{title}</span>
-            <button onClick={onClose} className="text-slate-400 hover:text-rose-600 hover:bg-rose-100 w-7 h-7 flex items-center justify-center rounded-full transition">✕</button>
+        <div 
+          id={`widget-${widget.id}`}
+          className="absolute glass-panel rounded-3xl flex flex-col overflow-hidden shadow-2xl transition-shadow select-none" 
+          style={{ 
+            transform: `translate3d(${widget.x}px, ${widget.y}px, 0)`, 
+            width: widget.w,
+            ...(widget.h ? { height: widget.h } : {}),
+            zIndex: widget.z 
+          }}
+        >
+          {/* Draghuvud för att flytta runt rutan */}
+          <div 
+            onMouseDown={onDown} 
+            onTouchStart={onDown} 
+            style={{ touchAction: 'none' }}
+            className="flex justify-between items-center px-5 py-3 bg-slate-100/90 border-b border-slate-200 cursor-grab active:cursor-grabbing select-none"
+          >
+            <span className="font-extrabold text-xs uppercase tracking-widest text-slate-600 pointer-events-none flex items-center gap-1.5">
+              <span className="text-slate-400">⠿</span> {title}
+            </span>
+            <button 
+              onClick={onClose} 
+              className="text-slate-400 hover:text-rose-600 hover:bg-rose-100 w-7 h-7 flex items-center justify-center rounded-full transition cursor-pointer"
+            >
+              ✕
+            </button>
           </div>
-          <div className="p-5 flex-1 overflow-auto">{children}</div>
+          
+          {/* Innehåll */}
+          <div className="p-5 flex-1 overflow-auto">
+            {children}
+          </div>
+
+          {/* Grepphörn för att dra ut/ändra storlek på rutan */}
+          <div
+            onMouseDown={onResizeDown}
+            onTouchStart={onResizeDown}
+            style={{ touchAction: 'none' }}
+            title="Dra här för att göra rutan större eller mindre"
+            className="absolute bottom-0 right-0 w-8 h-8 flex items-end justify-end p-1.5 cursor-nwse-resize text-slate-400 hover:text-indigo-600 active:text-indigo-700 transition select-none z-20 group"
+          >
+            <svg className="w-4 h-4 group-hover:scale-125 transition-transform" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M22 22H20V20H22V22ZM22 16H20V18H22V16ZM18 20H16V22H18V20ZM22 12H20V14H22V12ZM14 20H12V22H14V20ZM18 16H16V18H18V16Z" />
+            </svg>
+          </div>
         </div>
       );
     }
