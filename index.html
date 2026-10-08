@@ -16,8 +16,8 @@
   <script type="module">
     // Importerar nödvändiga Firebase-funktioner
     import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-    import { getAuth, signInAnonymously } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-    import { getFirestore, collection, addDoc, getDocs, deleteDoc, doc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+    import { getAuth, signInWithPopup, GoogleAuthProvider, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+    import { getFirestore, collection, addDoc, getDocs, deleteDoc, doc, query, where } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
     // DIN SPECIFIKA FIREBASE-KONFIGURATION
     const firebaseConfig = {
@@ -33,21 +33,23 @@
     const app = initializeApp(firebaseConfig);
     const auth = getAuth(app);
     const db = getFirestore(app);
+    const googleProvider = new GoogleAuthProvider();
 
     // Gör funktionerna tillgängliga för React-koden
     window.fbDb = db;
+    window.fbAuth = auth;
+    window.fbGoogleProvider = googleProvider;
+    window.fbSignInWithPopup = signInWithPopup;
+    window.fbSignOut = signOut;
     window.fbCollection = collection;
     window.fbAddDoc = addDoc;
     window.fbGetDocs = getDocs;
     window.fbDeleteDoc = deleteDoc;
     window.fbDoc = doc;
 
-    // Logga in användaren i bakgrunden för att få spara
-    signInAnonymously(auth).then((userCredential) => {
-      window.fbUser = userCredential.user;
-      window.dispatchEvent(new Event('firebase-ready')); // Säg till React att molnet är redo
-    }).catch((error) => {
-      console.error("Fel vid molninloggning:", error);
+    onAuthStateChanged(auth, (user) => {
+      window.fbUser = user;
+      window.dispatchEvent(new CustomEvent('firebase-auth-changed', { detail: user }));
     });
   </script>
 
@@ -91,13 +93,15 @@
       const [showCloudModal, setShowCloudModal] = useState(false);
       const [resetConfirm, setResetConfirm] = useState(false);
       const [topZ, setTopZ] = useState(10);
-      const [cloudReady, setCloudReady] = useState(false);
+      const [currentUser, setCurrentUser] = useState(null);
 
       const t = i18n[lang];
 
       useEffect(() => {
-        if (window.fbUser) setCloudReady(true);
-        else window.addEventListener('firebase-ready', () => setCloudReady(true));
+        const handleAuth = (e) => setCurrentUser(e.detail);
+        window.addEventListener('firebase-auth-changed', handleAuth);
+        if (window.fbAuth?.currentUser) setCurrentUser(window.fbAuth.currentUser);
+        return () => window.removeEventListener('firebase-auth-changed', handleAuth);
       }, []);
 
       // Drag & Drop logik
@@ -196,8 +200,8 @@
               <button onClick={() => setShowBgModal(true)} className="px-3 py-1.5 bg-white/10 hover:bg-white/20 rounded-xl text-xs font-bold transition active:scale-95 border border-white/20">
                 🎨 {t.changeBg}
               </button>
-              <button onClick={() => setShowCloudModal(true)} disabled={!cloudReady} className="px-4 py-1.5 bg-indigo-600 hover:bg-indigo-500 disabled:bg-slate-500 rounded-xl text-xs font-bold shadow-lg transition active:scale-95 flex items-center gap-2">
-                ☁️ {cloudReady ? t.templates : 'Laddar molnet...'}
+              <button onClick={() => setShowCloudModal(true)} className="px-4 py-1.5 bg-indigo-600 hover:bg-indigo-500 rounded-xl text-xs font-bold shadow-lg transition active:scale-95 flex items-center gap-2">
+                {currentUser ? `☁️ ${currentUser.displayName?.split(' ')[0] || 'Mina Mallar'}` : `☁️ ${t.templates}`}
               </button>
               <button onClick={handleReset} className={`px-3 py-1.5 rounded-xl text-xs font-bold transition active:scale-95 border ${resetConfirm ? 'bg-red-600 text-white border-red-500 animate-pulse' : 'bg-white/10 hover:bg-white/20 text-white border-white/20'}`}>
                 {resetConfirm ? t.sure : `🗑️ ${t.clear}`}
@@ -236,63 +240,75 @@
           </footer>
 
           {showBgModal && <BgModal currentBg={bg} onSelect={(newBg) => { setBg(newBg); setShowBgModal(false); }} onClose={() => setShowBgModal(false)} t={t} />}
-          {showCloudModal && <CloudModal t={t} widgets={widgets} bg={bg} onClose={() => setShowCloudModal(false)} onLoad={(loadedWidgets, loadedBg) => { setWidgets(loadedWidgets); if (loadedBg) setBg(loadedBg); setShowCloudModal(false); }} />}
+          {showCloudModal && <CloudModal t={t} widgets={widgets} bg={bg} user={currentUser} onClose={() => setShowCloudModal(false)} onLoad={(loadedWidgets, loadedBg) => { setWidgets(loadedWidgets); if (loadedBg) setBg(loadedBg); setShowCloudModal(false); }} />}
         </div>
       );
     }
 
-    function CloudModal({ t, widgets, bg, onClose, onLoad }) {
-      const [teacherName, setTeacherName] = useState(localStorage.getItem('cs_teacher_name') || '');
-      const [isLoggedIn, setIsLoggedIn] = useState(!!localStorage.getItem('cs_teacher_name'));
+    function CloudModal({ t, widgets, bg, user, onClose, onLoad }) {
       const [templates, setTemplates] = useState([]);
       const [newTemplateName, setNewTemplateName] = useState('');
       const [msg, setMsg] = useState('');
-      const appId = 'whiteboard-klassrum'; // Kopplat till din databas
+      const [loading, setLoading] = useState(false);
+      const appId = 'whiteboard-klassrum';
 
       const fetchTemplates = async () => {
-        if (!window.fbDb) return;
+        if (!window.fbDb || !user) return;
         try {
-          // Hämtar från rätt databas-sökväg enligt reglerna
+          setLoading(true);
           const templatesRef = window.fbCollection(window.fbDb, 'artifacts', appId, 'public', 'data', 'templates');
           const snapshot = await window.fbGetDocs(templatesRef);
           
-          const allTemplates = [];
+          const userTemplates = [];
           snapshot.forEach((doc) => {
             const data = doc.data();
-            // Vi filtrerar ut lärarens egna mallar här i koden
-            if (data.teacherName && data.teacherName.toLowerCase() === teacherName.trim().toLowerCase()) {
-              allTemplates.push({ id: doc.id, ...data });
+            if (data.userId === user.uid) {
+              userTemplates.push({ id: doc.id, ...data });
             }
           });
           
-          setTemplates(allTemplates.sort((a, b) => b.createdAt - a.createdAt));
+          setTemplates(userTemplates.sort((a, b) => b.createdAt - a.createdAt));
         } catch (error) {
-          console.error("Kunde inte hämta från molnet:", error);
+          console.error("Kunde inte hämta mallar:", error);
           setMsg('❌ Fel vid hämtning av mallar.');
+        } finally {
+          setLoading(false);
         }
       };
 
       useEffect(() => {
-        if (isLoggedIn) fetchTemplates();
-      }, [isLoggedIn, teacherName]);
+        if (user) fetchTemplates();
+      }, [user]);
 
-      const login = (e) => {
-        e.preventDefault();
-        if (teacherName.trim().length > 1) {
-          localStorage.setItem('cs_teacher_name', teacherName.trim());
-          setIsLoggedIn(true);
+      const handleGoogleLogin = async () => {
+        try {
           setMsg('');
+          await window.fbSignInWithPopup(window.fbAuth, window.fbGoogleProvider);
+        } catch (err) {
+          console.error("Inloggningsfel:", err);
+          setMsg('❌ Inloggningen avbröts eller misslyckades.');
+        }
+      };
+
+      const handleLogout = async () => {
+        try {
+          await window.fbSignOut(window.fbAuth);
+          setTemplates([]);
+        } catch (err) {
+          console.error("Fel vid utloggning:", err);
         }
       };
 
       const saveToCloud = async () => {
-        if (!newTemplateName.trim() || !window.fbDb) return;
+        if (!newTemplateName.trim() || !window.fbDb || !user) return;
         try {
           setMsg('Sparar till molnet...');
           const templatesRef = window.fbCollection(window.fbDb, 'artifacts', appId, 'public', 'data', 'templates');
           
           await window.fbAddDoc(templatesRef, {
-            teacherName: teacherName.trim(),
+            userId: user.uid,
+            userName: user.displayName || user.email,
+            userEmail: user.email,
             name: newTemplateName.trim(),
             widgets: widgets,
             bg: bg,
@@ -301,11 +317,11 @@
           
           setNewTemplateName('');
           setMsg('✅ Sparad i molnet!');
-          fetchTemplates(); // Uppdatera listan
+          fetchTemplates();
           setTimeout(() => setMsg(''), 3000);
         } catch (error) {
           console.error("Kunde inte spara:", error);
-          setMsg('❌ Något gick fel.');
+          setMsg('❌ Något gick fel vid sparning.');
         }
       };
 
@@ -313,7 +329,7 @@
         if (!window.fbDb) return;
         try {
           await window.fbDeleteDoc(window.fbDoc(window.fbDb, 'artifacts', appId, 'public', 'data', 'templates', docId));
-          fetchTemplates(); // Uppdatera listan
+          fetchTemplates();
         } catch (error) {
           console.error("Kunde inte radera:", error);
         }
@@ -327,17 +343,48 @@
               <button onClick={onClose} className="w-8 h-8 flex items-center justify-center bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-full transition">✕</button>
             </div>
 
-            {!isLoggedIn ? (
-              <form onSubmit={login} className="space-y-4">
-                <p className="text-sm text-slate-600 font-medium">Ange ditt namn eller en kod för att spara och ladda dina egna lektioner i molnet.</p>
-                <input type="text" value={teacherName} onChange={e => setTeacherName(e.target.value)} placeholder="T.ex. Jennie" className="w-full px-4 py-3 text-sm border-2 border-slate-200 rounded-xl outline-none focus:border-indigo-500 font-bold text-slate-700" />
-                <button type="submit" className="w-full bg-indigo-600 text-white font-bold py-3 rounded-xl hover:bg-indigo-700 shadow-md transition active:scale-95">Logga in i molnet</button>
-              </form>
+            {!user ? (
+              <div className="text-center py-4 space-y-4">
+                <div className="w-16 h-16 bg-indigo-50 text-indigo-600 rounded-3xl mx-auto flex items-center justify-center text-3xl shadow-inner">
+                  🔐
+                </div>
+                <h3 className="font-extrabold text-lg text-slate-800">Logga in med ditt Google-konto</h3>
+                <p className="text-xs text-slate-500 font-medium leading-relaxed px-4">
+                  Logga in med ditt skolkonto så följer alla dina sparade lektioner, timers och tavlor med dig automatiskt till vilket klassrum som helst.
+                </p>
+                <button
+                  onClick={handleGoogleLogin}
+                  className="w-full flex items-center justify-center gap-3 bg-white border-2 border-slate-200 hover:border-slate-400 hover:bg-slate-50 text-slate-700 font-bold py-3 px-4 rounded-2xl shadow-sm transition active:scale-95"
+                >
+                  <svg className="w-5 h-5" viewBox="0 0 24 24">
+                    <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
+                    <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
+                    <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z"/>
+                    <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"/>
+                  </svg>
+                  <span>Fortsätt med Google</span>
+                </button>
+                {msg && <div className="text-xs font-bold text-red-600 bg-red-50 p-2.5 rounded-xl border border-red-200">{msg}</div>}
+              </div>
             ) : (
               <div>
-                <div className="flex justify-between items-center mb-4">
-                  <span className="text-xs font-bold text-indigo-700 bg-indigo-50 px-3 py-1.5 rounded-lg border border-indigo-100">Konto: {teacherName}</span>
-                  <button onClick={() => { setIsLoggedIn(false); setTemplates([]); }} className="text-xs font-bold text-slate-400 hover:text-slate-600 underline">Logga ut</button>
+                <div className="flex justify-between items-center mb-4 p-2.5 bg-slate-50 border border-slate-200 rounded-2xl">
+                  <div className="flex items-center gap-2.5 overflow-hidden">
+                    {user.photoURL ? (
+                      <img src={user.photoURL} alt="Profil" className="w-8 h-8 rounded-full border border-slate-300" />
+                    ) : (
+                      <div className="w-8 h-8 rounded-full bg-indigo-600 text-white font-bold flex items-center justify-center text-xs">
+                        {(user.displayName || user.email || 'L')[0].toUpperCase()}
+                      </div>
+                    )}
+                    <div className="truncate">
+                      <span className="font-extrabold text-xs text-slate-800 block truncate">{user.displayName || 'Lärare'}</span>
+                      <span className="text-[10px] text-slate-400 block truncate">{user.email}</span>
+                    </div>
+                  </div>
+                  <button onClick={handleLogout} className="text-xs font-bold text-slate-500 hover:text-rose-600 px-2 py-1 rounded-lg hover:bg-slate-200 transition">
+                    Logga ut
+                  </button>
                 </div>
 
                 <div className="flex gap-2 mb-4">
@@ -348,7 +395,8 @@
                 {msg && <div className={`text-xs font-bold mb-4 p-2.5 rounded-xl border ${msg.includes('❌') ? 'bg-red-50 text-red-600 border-red-200' : 'bg-emerald-50 text-emerald-600 border-emerald-200'}`}>{msg}</div>}
 
                 <div className="space-y-2 max-h-60 overflow-y-auto pr-1">
-                  {templates.length === 0 && <div className="text-center py-8 text-sm text-slate-400 font-medium">Du har inga mallar sparade i molnet ännu.</div>}
+                  {loading && <div className="text-center py-6 text-xs text-slate-400 font-medium">Hämtar dina lektioner...</div>}
+                  {!loading && templates.length === 0 && <div className="text-center py-8 text-sm text-slate-400 font-medium">Du har inga sparade lektioner i molnet ännu.</div>}
                   {templates.map(tpl => (
                     <div key={tpl.id} className="flex items-center justify-between p-3.5 bg-slate-50 border border-slate-200 rounded-2xl hover:bg-slate-100 transition">
                       <div>
