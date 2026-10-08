@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Klassrumsskärm / Classroom Screen</title>
+  <title>Klassrumsskärm</title>
   
   <!-- Tailwind CSS -->
   <script src="https://cdn.tailwindcss.com"></script>
@@ -12,7 +12,7 @@
   <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
   <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
   
-  <!-- Babel Standalone för JSX -->
+  <!-- Babel för JSX -->
   <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
   
   <style>
@@ -22,7 +22,7 @@
       overflow: hidden; 
       margin: 0; 
       background-color: #0f172a;
-      font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      font-family: 'Inter', system-ui, sans-serif;
     }
     ::-webkit-scrollbar { width: 6px; height: 6px; }
     ::-webkit-scrollbar-thumb { background: rgba(0,0,0,0.25); border-radius: 4px; }
@@ -55,10 +55,10 @@
         timer: "Tidtagare",
         traffic: "Trafikljus",
         work: "Arbetsform",
-        noise: "Ljudnivå",
         dice: "Tärning",
-        random: "Slumpa Namn",
+        random: "Slumpa Elev",
         notes: "Anteckningar",
+        qrcode: "QR-kod",
         changeBg: "Bakgrund",
         templates: "Mina Mallar",
         resetData: "Rensa",
@@ -69,20 +69,20 @@
         pause: "Pausa",
         reset: "Nollställ",
         saveTemplate: "Spara mall",
-        loadTemplate: "Ladda mall",
-        templateName: "Namn på ny mall...",
+        loadTemplate: "Ladda in",
+        templateName: "Namn på lektion...",
         chooseRandom: "Slumpa!",
         rollDice: "Kasta tärning",
         silence: "Tystnad",
         whisper: "Viska",
         ask: "Fråga kompis",
         group: "Samarbete",
-        micStart: "Starta Mätning",
-        micStop: "Stoppa Mätning",
-        tooLoud: "För högt! ⚠️",
-        acceptable: "Acceptabel nivå",
-        defaultNames: "Alma, Oliver, Maja, William, Elsa, Liam, Astrid, Elias, Selma, Hugo",
-        emptyAgenda: "Inga punkter än. Lägg till en nedan!"
+        defaultNames: "Alma, Oliver, Maja, William, Elsa, Liam, Astrid, Elias",
+        emptyAgenda: "Inga punkter än. Lägg till en nedan!",
+        exportBtn: "Ladda ner fil (.json)",
+        importBtn: "Öppna från fil",
+        exported: "✅ Filen laddades ner!",
+        imported: "✅ Lektion inläst!"
       },
       en: {
         appTitle: "Classroom Screen",
@@ -90,10 +90,10 @@
         timer: "Timer",
         traffic: "Traffic Light",
         work: "Work Mode",
-        noise: "Noise Meter",
         dice: "Dice",
         random: "Random Name",
         notes: "Notes",
+        qrcode: "QR Code",
         changeBg: "Background",
         templates: "Templates",
         resetData: "Clear",
@@ -103,29 +103,29 @@
         start: "Start",
         pause: "Pause",
         reset: "Reset",
-        saveTemplate: "Save Profile",
-        loadTemplate: "Load Profile",
-        templateName: "Profile name...",
+        saveTemplate: "Save Layout",
+        loadTemplate: "Load",
+        templateName: "Layout name...",
         chooseRandom: "Draw!",
         rollDice: "Roll Dice",
         silence: "Silence",
         whisper: "Whisper",
         ask: "Ask Neighbor",
         group: "Group Work",
-        micStart: "Start Mic",
-        micStop: "Stop Mic",
-        tooLoud: "Too Loud! ⚠️",
-        acceptable: "Acceptable",
         defaultNames: "Alice, Bob, Charlie, Diana, Ethan, Fiona, George, Hannah",
-        emptyAgenda: "No items yet. Add one below!"
+        emptyAgenda: "No items yet. Add one below!",
+        exportBtn: "Download File (.json)",
+        importBtn: "Open from file",
+        exported: "✅ File downloaded!",
+        imported: "✅ Layout imported!"
       }
     };
 
     const DEFAULT_BACKGROUNDS = [
-      { name: 'Höstlöv / Autumn', url: 'https://images.unsplash.com/photo-1507525428034-b723cf961d3e?auto=format&fit=crop&w=2000&q=80' },
-      { name: 'Gyllene Höst / Golden Trees', url: 'https://images.unsplash.com/photo-1477414348463-c0eb7f1359b6?auto=format&fit=crop&w=2000&q=80' },
+      { name: 'Höst / Autumn', url: 'https://images.unsplash.com/photo-1507525428034-b723cf961d3e?auto=format&fit=crop&w=2000&q=80' },
       { name: 'Skog / Forest', url: 'https://images.unsplash.com/photo-1448375240586-882707db888b?auto=format&fit=crop&w=2000&q=80' },
       { name: 'Sjö / Lake', url: 'https://images.unsplash.com/photo-1506744038136-46273834b3fb?auto=format&fit=crop&w=2000&q=80' },
+      { name: 'Rymden / Space', url: 'https://images.unsplash.com/photo-1506703719100-a0f3a48c0f86?auto=format&fit=crop&w=2000&q=80' },
       { name: 'Mörk / Minimal Dark', url: 'linear-gradient(135deg, #1e293b 0%, #0f172a 100%)', isGradient: true }
     ];
 
@@ -142,30 +142,15 @@
       
       const defaultWidgets = [
         { 
-          id: 'agenda-init', 
-          type: 'agenda', 
-          x: 40, 
-          y: 80, 
-          w: 360, 
-          z: 1, 
+          id: 'agenda-init', type: 'agenda', x: 40, y: 80, w: 360, z: 1, 
           data: { 
             items: [
-              { id: 1, text: "Närvarokontroll", done: true },
-              { id: 2, text: "Regler och förväntningar", done: false },
-              { id: 3, text: "Tyst läsning: 10 minuter", done: false },
-              { id: 4, text: "Tala engelska (parövning)", done: false }
+              { id: 1, text: "Närvarokontroll", done: false },
+              { id: 2, text: "Tyst läsning", done: false }
             ] 
           } 
         },
-        { 
-          id: 'timer-init', 
-          type: 'timer', 
-          x: 430, 
-          y: 80, 
-          w: 340, 
-          z: 2, 
-          data: { initialTime: 600 } 
-        }
+        { id: 'timer-init', type: 'timer', x: 430, y: 80, w: 340, z: 2, data: { initialTime: 600 } }
       ];
       
       const [widgets, setWidgets] = useState(loadLocal('cs_widgets', defaultWidgets));
@@ -174,13 +159,15 @@
       const [topZ, setTopZ] = useState(20);
       const [resetConfirm, setResetConfirm] = useState(false);
 
-      const t = i18n[lang];
+      const t = i18n[lang] || i18n.sv;
 
-      // Spara automatiskt till webbläsarens minne
+      // Auto-save to local storage
       useEffect(() => {
-        localStorage.setItem('cs_lang', JSON.stringify(lang));
-        localStorage.setItem('cs_bg', JSON.stringify(bg));
-        localStorage.setItem('cs_widgets', JSON.stringify(widgets));
+        try {
+          localStorage.setItem('cs_lang', JSON.stringify(lang));
+          localStorage.setItem('cs_bg', JSON.stringify(bg));
+          localStorage.setItem('cs_widgets', JSON.stringify(widgets));
+        } catch(e) {}
       }, [lang, bg, widgets]);
 
       const [draggingId, setDraggingId] = useState(null);
@@ -208,7 +195,7 @@
           if (clientX === undefined) return;
 
           const newX = Math.max(0, clientX - dragOffset.current.x);
-          const newY = Math.max(64, clientY - dragOffset.current.y);
+          const newY = Math.max(64, clientY - dragOffset.current.y); // Förhindra att dra ovanför menyn
 
           setWidgets(prev => prev.map(w => w.id === draggingId ? { ...w, x: newX, y: newY } : w));
         };
@@ -255,6 +242,7 @@
         if(type === 'random') newWidget.data = { names: t.defaultNames };
         if(type === 'dice') newWidget.data = { count: 2 };
         if(type === 'notes') newWidget.data = { text: "" };
+        if(type === 'qrcode') newWidget.data = { url: "https://classroom.google.com" };
 
         setWidgets(prev => [...prev, newWidget]);
       };
@@ -270,13 +258,9 @@
       };
 
       return (
-        <div 
-          className="relative w-screen h-screen overflow-hidden text-slate-800 transition-all duration-300 select-none"
-          style={{ 
-            background: bg.startsWith('linear') ? bg : `url(${bg}) center/cover no-repeat fixed` 
-          }}
-        >
-          {/* Mjuk skugga över bakgrunden */}
+        <div className="relative w-screen h-screen overflow-hidden text-slate-800 transition-all duration-300 select-none"
+             style={{ background: bg.startsWith('linear') ? bg : `url(${bg}) center/cover no-repeat fixed` }}>
+          
           <div className="absolute inset-0 bg-black/20 pointer-events-none" />
 
           {/* Header */}
@@ -289,39 +273,25 @@
             <div className="flex gap-2 sm:gap-3 items-center">
               <TopClock />
               
-              <button 
-                onClick={() => setLang(lang === 'sv' ? 'en' : 'sv')} 
-                className="px-3 py-1.5 bg-white/15 hover:bg-white/25 rounded-xl text-xs font-bold border border-white/20 transition active:scale-95"
-              >
+              <button onClick={() => setLang(lang === 'sv' ? 'en' : 'sv')} className="px-3 py-1.5 bg-white/15 hover:bg-white/25 rounded-xl text-xs font-bold border border-white/20 transition active:scale-95">
                 {lang === 'sv' ? '🇸🇪 SV' : '🇬🇧 EN'}
               </button>
 
-              <button 
-                onClick={() => setShowBgModal(true)} 
-                className="px-3 py-1.5 bg-white/15 hover:bg-white/25 rounded-xl text-xs font-bold border border-white/20 transition active:scale-95"
-              >
+              <button onClick={() => setShowBgModal(true)} className="px-3 py-1.5 bg-white/15 hover:bg-white/25 rounded-xl text-xs font-bold border border-white/20 transition active:scale-95">
                 🎨 {t.changeBg}
               </button>
 
-              <button 
-                onClick={() => setShowTemplatesModal(true)} 
-                className="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold shadow-md transition active:scale-95"
-              >
+              <button onClick={() => setShowTemplatesModal(true)} className="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold shadow-md transition active:scale-95">
                 📁 {t.templates}
               </button>
 
-              <button 
-                onClick={handleReset} 
-                className={`px-3 py-1.5 rounded-xl text-xs font-bold border transition active:scale-95 ${
-                  resetConfirm ? 'bg-red-600 text-white border-red-400 animate-pulse' : 'bg-white/15 hover:bg-white/25 text-white border-white/20'
-                }`}
-              >
+              <button onClick={handleReset} className={`px-3 py-1.5 rounded-xl text-xs font-bold border transition active:scale-95 ${resetConfirm ? 'bg-red-600 text-white border-red-400 animate-pulse' : 'bg-white/15 hover:bg-white/25 text-white border-white/20'}`}>
                 {resetConfirm ? t.sure : `🗑️ ${t.resetData}`}
               </button>
             </div>
           </header>
 
-          {/* Huvudskärm / Arbetsyta för widgets */}
+          {/* Widgets Canvas */}
           <main className="absolute inset-0 pt-16 pb-24 overflow-hidden">
             {widgets.map(widget => (
               <WidgetWrapper 
@@ -337,13 +307,13 @@
                 {widget.type === 'work' && <WorkModeWidget data={widget.data} updateData={(d) => updateWidgetData(widget.id, d)} t={t} />}
                 {widget.type === 'random' && <RandomPickerWidget data={widget.data} updateData={(d) => updateWidgetData(widget.id, d)} t={t} />}
                 {widget.type === 'dice' && <DiceWidget data={widget.data} updateData={(d) => updateWidgetData(widget.id, d)} t={t} />}
-                {widget.type === 'noise' && <NoiseMeterWidget t={t} />}
                 {widget.type === 'notes' && <NotesWidget data={widget.data} updateData={(d) => updateWidgetData(widget.id, d)} />}
+                {widget.type === 'qrcode' && <QrWidget data={widget.data} updateData={(d) => updateWidgetData(widget.id, d)} />}
               </WidgetWrapper>
             ))}
           </main>
 
-          {/* Verktygsdocka längst ner */}
+          {/* Dock */}
           <footer className="absolute bottom-3 left-1/2 -translate-x-1/2 z-40 max-w-[95vw] overflow-x-auto p-1 scrollbar-none">
             <div className="flex items-center gap-1.5 bg-slate-900/85 hover:bg-slate-900/95 backdrop-blur-xl border border-white/20 px-3 py-2 rounded-2xl shadow-2xl">
               <DockBtn icon="📋" label={t.agenda} onClick={() => addWidget('agenda')} />
@@ -352,39 +322,19 @@
               <DockBtn icon="🔀" label={t.random} onClick={() => addWidget('random')} />
               <DockBtn icon="🚦" label={t.traffic} onClick={() => addWidget('traffic')} />
               <DockBtn icon="👥" label={t.work} onClick={() => addWidget('work')} />
-              <DockBtn icon="🔊" label={t.noise} onClick={() => addWidget('noise')} />
               <DockBtn icon="📝" label={t.notes} onClick={() => addWidget('notes')} />
+              <DockBtn icon="📱" label={t.qrcode} onClick={() => addWidget('qrcode')} />
             </div>
           </footer>
 
-          {/* Modal för Bakgrunder */}
-          {showBgModal && (
-            <BackgroundModal 
-              currentBg={bg} 
-              onSelect={(newBg) => { setBg(newBg); setShowBgModal(false); }} 
-              onClose={() => setShowBgModal(false)} 
-            />
-          )}
-
-          {/* Modal för Mallar (med Google Drive filstöd) */}
-          {showTemplatesModal && (
-            <TemplateModal 
-              t={t} 
-              widgets={widgets} 
-              bg={bg} 
-              onClose={() => setShowTemplatesModal(false)} 
-              onLoad={(loadedWidgets, loadedBg) => { 
-                setWidgets(loadedWidgets); 
-                if (loadedBg) setBg(loadedBg); 
-                setShowTemplatesModal(false); 
-              }} 
-            />
-          )}
+          {/* Modals */}
+          {showBgModal && <BackgroundModal currentBg={bg} onSelect={(newBg) => { setBg(newBg); setShowBgModal(false); }} onClose={() => setShowBgModal(false)} t={t} />}
+          {showTemplatesModal && <TemplateModal t={t} widgets={widgets} bg={bg} lang={lang} onClose={() => setShowTemplatesModal(false)} onLoad={(loadedWidgets, loadedBg) => { setWidgets(loadedWidgets); if (loadedBg) setBg(loadedBg); setShowTemplatesModal(false); }} />}
         </div>
       );
     }
 
-    function TemplateModal({ t, widgets, bg, onClose, onLoad }) {
+    function TemplateModal({ t, widgets, bg, lang, onClose, onLoad }) {
       const [templates, setTemplates] = useState([]);
       const [name, setName] = useState('');
       const [msg, setMsg] = useState('');
@@ -402,8 +352,8 @@
         localStorage.setItem('cs_templates', JSON.stringify(newTemplates));
         setTemplates(newTemplates);
         setName('');
-        setMsg('✅ Mallen har sparats lokalt!');
-        setTimeout(() => setMsg(''), 3000);
+        setMsg('✅');
+        setTimeout(() => setMsg(''), 2000);
       };
 
       const remove = (id) => {
@@ -412,25 +362,26 @@
         setTemplates(newTemplates);
       };
 
-      // Exportera till en liten JSON-fil som läraren kan spara på Google Drive
       const exportToFile = () => {
-        if (templates.length === 0) {
-          setMsg('Skapa minst en mall först!');
-          setTimeout(() => setMsg(''), 3000);
-          return;
-        }
-        const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(templates, null, 2));
-        const downloadAnchor = document.createElement('a');
-        downloadAnchor.setAttribute("href", dataStr);
-        downloadAnchor.setAttribute("download", `klassrumsmallar-${new Date().toISOString().slice(0,10)}.json`);
-        document.body.appendChild(downloadAnchor);
-        downloadAnchor.click();
-        downloadAnchor.remove();
-        setMsg('✅ Filen laddades ner! Spara den på Google Drive.');
-        setTimeout(() => setMsg(''), 3500);
+        const dataToSave = { widgets, bg, lang };
+        const dataStr = JSON.stringify(dataToSave, null, 2);
+        
+        const blob = new Blob([dataStr], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        
+        const a = document.createElement('a');
+        a.href = url;
+        const today = new Date().toISOString().slice(0, 10);
+        a.download = `klassrumsmall-${today}.json`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+        
+        setMsg(t.exported);
+        setTimeout(() => setMsg(''), 3000);
       };
 
-      // Läs in sparad mallfil från Google Drive / Hårddisk
       const importFromFile = (e) => {
         const file = e.target.files?.[0];
         if (!file) return;
@@ -438,16 +389,14 @@
         reader.onload = (event) => {
           try {
             const imported = JSON.parse(event.target.result);
-            if (Array.isArray(imported)) {
-              const merged = [...templates, ...imported.map(tpl => ({ ...tpl, id: Date.now() + Math.random() }))];
-              localStorage.setItem('cs_templates', JSON.stringify(merged));
-              setTemplates(merged);
-              setMsg('✅ Mallarna lästes in från filen!');
+            if (imported && imported.widgets) {
+              onLoad(imported.widgets, imported.bg);
+              setMsg(t.imported);
             } else {
-              setMsg('❌ Fel filformat.');
+              setMsg('❌ Invalid format');
             }
           } catch (err) {
-            setMsg('❌ Kunde inte läsa filen.');
+            setMsg('❌ Error reading file');
           }
           setTimeout(() => setMsg(''), 3500);
         };
@@ -458,35 +407,20 @@
         <div className="fixed inset-0 z-[100] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
           <div className="bg-white rounded-2xl p-6 w-full max-w-md shadow-2xl border border-slate-100 animate-in fade-in">
             <div className="flex justify-between items-center mb-4 pb-2 border-b border-slate-100">
-              <h2 className="text-lg font-bold text-slate-900 flex items-center gap-2">
-                <span>📁</span> {t.templates}
-              </h2>
+              <h2 className="text-lg font-bold text-slate-900 flex items-center gap-2"><span>📁</span> {t.templates}</h2>
               <button onClick={onClose} className="text-slate-400 hover:text-black text-xl p-1">✕</button>
             </div>
             
-            {/* Skapa ny mall */}
             <div className="flex gap-2 mb-3">
-              <input 
-                type="text" 
-                value={name} 
-                onChange={e => setName(e.target.value)} 
-                placeholder={t.templateName} 
-                className="flex-1 px-3 py-2 text-sm border border-slate-200 rounded-xl outline-none focus:border-indigo-500" 
-              />
-              <button 
-                onClick={save} 
-                className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-sm font-bold shadow transition"
-              >
-                {t.saveTemplate}
-              </button>
+              <input type="text" value={name} onChange={e => setName(e.target.value)} placeholder={t.templateName} className="flex-1 px-3 py-2 text-sm border border-slate-200 rounded-xl outline-none focus:border-indigo-500" />
+              <button onClick={save} className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-sm font-bold shadow transition">{t.saveTemplate}</button>
             </div>
             
             {msg && <div className="text-xs font-bold text-emerald-600 mb-3 bg-emerald-50 p-2 rounded-lg border border-emerald-200">{msg}</div>}
 
-            {/* Lista med sparade mallar */}
             <div className="space-y-2 max-h-52 overflow-y-auto mb-4 border-t border-slate-100 pt-3">
               {templates.length === 0 && (
-                <p className="text-xs text-slate-400 italic text-center py-4">Inga sparade mallar ännu. Skriv ett namn ovan och spara din lektion!</p>
+                <div className="text-center py-6 text-xs text-slate-400 italic">Inga sparade mallar än.</div>
               )}
               {templates.map(tpl => (
                 <div key={tpl.id} className="flex items-center justify-between p-3 bg-slate-50 border border-slate-200/70 rounded-xl hover:bg-slate-100/70 transition">
@@ -495,92 +429,48 @@
                     <span className="text-[10px] text-slate-400">{tpl.widgets?.length || 0} block</span>
                   </div>
                   <div className="flex gap-1.5">
-                    <button 
-                      onClick={() => onLoad(tpl.widgets, tpl.bg)} 
-                      className="px-3 py-1 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-lg transition"
-                    >
-                      {t.loadTemplate}
-                    </button>
-                    <button 
-                      onClick={() => remove(tpl.id)} 
-                      className="px-2 py-1 bg-rose-100 hover:bg-rose-200 text-rose-700 font-bold text-xs rounded-lg transition"
-                      title="Radera mall"
-                    >
-                      🗑️
-                    </button>
+                    <button onClick={() => onLoad(tpl.widgets, tpl.bg)} className="px-3 py-1 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-lg transition">{t.loadTemplate}</button>
+                    <button onClick={() => remove(tpl.id)} className="px-2 py-1 bg-rose-100 hover:bg-rose-200 text-rose-700 font-bold text-xs rounded-lg transition">🗑️</button>
                   </div>
                 </div>
               ))}
             </div>
 
-            {/* Delning & Filhantering (Google Drive) */}
             <div className="border-t border-slate-200 pt-4">
-              <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider block mb-2">
-                Dela eller spara på Google Drive:
-              </span>
               <div className="flex gap-2">
-                <button 
-                  onClick={exportToFile} 
-                  className="flex-1 px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold rounded-xl transition flex items-center justify-center gap-1.5"
-                >
-                  <span>📥</span> Ladda ner fil
+                <button onClick={exportToFile} className="flex-1 px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold rounded-xl transition flex items-center justify-center gap-1.5">
+                  <span>📥</span> {t.exportBtn}
                 </button>
                 <label className="flex-1 px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold rounded-xl text-center cursor-pointer transition flex items-center justify-center gap-1.5">
-                  <span>📤</span> Öppna från fil
+                  <span>📤</span> {t.importBtn}
                   <input type="file" accept=".json" onChange={importFromFile} className="hidden" />
                 </label>
               </div>
-              <p className="text-[10px] text-slate-400 text-center mt-2">
-                Spara filen i Google Drive för att ta med dina lektioner till valfritt klassrum!
-              </p>
             </div>
           </div>
         </div>
       );
     }
 
-    function BackgroundModal({ currentBg, onSelect, onClose }) {
+    function BackgroundModal({ currentBg, onSelect, onClose, t }) {
       const [customUrl, setCustomUrl] = useState('');
       return (
         <div className="fixed inset-0 z-[100] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
           <div className="bg-white rounded-2xl p-6 w-full max-w-lg shadow-2xl">
             <div className="flex justify-between items-center mb-4">
-              <h2 className="text-lg font-bold text-slate-800">Välj bakgrund för klassrummet</h2>
+              <h2 className="text-lg font-bold text-slate-800">{t.changeBg}</h2>
               <button onClick={onClose} className="text-slate-400 hover:text-black text-xl p-1">✕</button>
             </div>
-
             <div className="grid grid-cols-2 gap-3 mb-4 max-h-60 overflow-y-auto">
               {DEFAULT_BACKGROUNDS.map((b, i) => (
-                <button 
-                  key={i} 
-                  onClick={() => onSelect(b.url)} 
-                  className={`h-24 rounded-xl overflow-hidden relative border-2 text-left p-2 flex items-end transition ${
-                    currentBg === b.url ? 'border-indigo-600 ring-2 ring-indigo-500/30' : 'border-transparent hover:border-slate-300'
-                  }`}
-                  style={{ background: b.isGradient ? b.url : `url(${b.url}) center/cover` }}
-                >
+                <button key={i} onClick={() => onSelect(b.url)} className={`h-24 rounded-xl overflow-hidden relative border-2 text-left p-2 flex items-end transition ${currentBg === b.url ? 'border-indigo-600 ring-2 ring-indigo-500/30' : 'border-transparent hover:border-slate-300'}`} style={{ background: b.isGradient ? b.url : `url(${b.url}) center/cover` }}>
                   <span className="text-white text-xs font-bold drop-shadow bg-black/40 px-2 py-0.5 rounded">{b.name}</span>
                 </button>
               ))}
             </div>
-
-            <div className="border-t border-slate-100 pt-3">
-              <label className="text-xs font-semibold text-slate-600 block mb-1">Eller klistra in en egen bildlänk:</label>
-              <div className="flex gap-2">
-                <input 
-                  type="text" 
-                  value={customUrl} 
-                  onChange={e => setCustomUrl(e.target.value)} 
-                  placeholder="https://example.com/bild.jpg" 
-                  className="flex-1 px-3 py-2 text-xs border rounded-xl"
-                />
-                <button 
-                  onClick={() => { if(customUrl.trim()) onSelect(customUrl.trim()); }} 
-                  className="px-4 py-2 bg-indigo-600 text-white rounded-xl text-xs font-bold"
-                >
-                  Välj
-                </button>
-              </div>
+            <div className="border-t border-slate-100 pt-3 flex gap-2">
+              <input type="text" value={customUrl} onChange={e => setCustomUrl(e.target.value)} placeholder="https://..." className="flex-1 px-3 py-2 text-xs border rounded-xl" />
+              <button onClick={() => { if(customUrl.trim()) onSelect(customUrl.trim()); }} className="px-4 py-2 bg-indigo-600 text-white rounded-xl text-xs font-bold">OK</button>
             </div>
           </div>
         </div>
@@ -589,26 +479,10 @@
 
     function WidgetWrapper({ widget, title, onDown, onClose, children }) {
       return (
-        <div 
-          className="absolute glass rounded-2xl shadow-2xl flex flex-col overflow-hidden" 
-          style={{ 
-            transform: `translate3d(${widget.x}px, ${widget.y}px, 0)`, 
-            width: widget.w, 
-            zIndex: widget.z 
-          }}
-        >
-          <div 
-            onMouseDown={onDown} 
-            onTouchStart={onDown} 
-            className="flex justify-between items-center px-4 py-2.5 bg-slate-100/90 border-b border-slate-200 cursor-grab active:cursor-grabbing rounded-t-2xl"
-          >
+        <div className="absolute glass rounded-2xl shadow-2xl flex flex-col overflow-hidden" style={{ transform: `translate3d(${widget.x}px, ${widget.y}px, 0)`, width: widget.w, zIndex: widget.z }}>
+          <div onMouseDown={onDown} onTouchStart={onDown} className="flex justify-between items-center px-4 py-2.5 bg-slate-100/90 border-b border-slate-200 cursor-grab active:cursor-grabbing rounded-t-2xl">
             <span className="font-bold text-xs uppercase tracking-wider text-slate-700 pointer-events-none">{title}</span>
-            <button 
-              onClick={onClose} 
-              className="text-slate-400 hover:text-red-600 hover:bg-red-50 w-6 h-6 flex items-center justify-center rounded transition text-sm"
-            >
-              ✕
-            </button>
+            <button onClick={onClose} className="text-slate-400 hover:text-red-600 hover:bg-red-50 w-6 h-6 flex items-center justify-center rounded transition text-sm">✕</button>
           </div>
           <div className="p-4 flex-1 overflow-auto">{children}</div>
         </div>
@@ -617,10 +491,7 @@
 
     function DockBtn({ icon, label, onClick }) {
       return (
-        <button 
-          onClick={onClick} 
-          className="flex flex-col items-center justify-center w-14 h-14 rounded-xl hover:bg-white/10 text-white transition active:scale-95 group"
-        >
+        <button onClick={onClick} className="flex flex-col items-center justify-center w-14 h-14 rounded-xl hover:bg-white/10 text-white transition active:scale-95 group">
           <span className="text-xl mb-0.5 group-hover:scale-110 transition-transform">{icon}</span>
           <span className="text-[9px] uppercase font-bold tracking-wider opacity-80 group-hover:opacity-100 truncate w-full text-center">{label}</span>
         </button>
@@ -629,15 +500,8 @@
 
     function TopClock() {
       const [time, setTime] = useState(new Date());
-      useEffect(() => { 
-        const timer = setInterval(() => setTime(new Date()), 1000); 
-        return () => clearInterval(timer); 
-      }, []);
-      return (
-        <div className="text-xs font-semibold bg-white/15 px-3 py-1.5 rounded-xl border border-white/20">
-          {time.toLocaleTimeString([], { hour: '2-digit', minute:'2-digit' })}
-        </div>
-      );
+      useEffect(() => { const timer = setInterval(() => setTime(new Date()), 1000); return () => clearInterval(timer); }, []);
+      return <div className="text-xs font-semibold bg-white/15 px-3 py-1.5 rounded-xl border border-white/20">{time.toLocaleTimeString([], { hour: '2-digit', minute:'2-digit' })}</div>;
     }
 
     function AgendaWidget({ data, updateData, t }) {
@@ -663,46 +527,22 @@
       return (
         <div className="space-y-3">
           <ul className="space-y-1.5 max-h-56 overflow-y-auto pr-1">
-            {items.length === 0 && (
-              <p className="text-xs text-slate-400 italic text-center py-4">{t.emptyAgenda}</p>
-            )}
+            {items.length === 0 && <p className="text-xs text-slate-400 italic text-center py-4">{t.emptyAgenda}</p>}
             {items.map(it => (
-              <li 
-                key={it.id} 
-                className={`flex items-center justify-between p-2 rounded-xl border transition ${
-                  it.done ? 'bg-slate-100/60 opacity-60 line-through border-transparent' : 'bg-white shadow-sm border-slate-200'
-                }`}
-              >
-                <div 
-                  className="flex items-center gap-2.5 overflow-hidden cursor-pointer flex-1" 
-                  onClick={() => toggle(it.id)}
-                >
+              <li key={it.id} className={`flex items-center justify-between p-2 rounded-xl border transition ${it.done ? 'bg-slate-100/60 opacity-60 line-through border-transparent' : 'bg-white shadow-sm border-slate-200'}`}>
+                <div className="flex items-center gap-2.5 overflow-hidden cursor-pointer flex-1" onClick={() => toggle(it.id)}>
                   <div className={`w-5 h-5 rounded-md flex items-center justify-center text-xs text-white transition-colors ${it.done ? 'bg-emerald-500' : 'bg-slate-200'}`}>
                     {it.done ? '✓' : ''}
                   </div>
                   <span className="text-xs font-medium truncate text-slate-800">{it.text}</span>
                 </div>
-                <button 
-                  onClick={() => remove(it.id)} 
-                  className="w-7 h-7 flex items-center justify-center text-slate-300 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition" 
-                  title="Radera punkt"
-                >
-                  🗑️
-                </button>
+                <button onClick={() => remove(it.id)} className="w-7 h-7 flex items-center justify-center text-slate-300 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition" title="Delete">🗑️</button>
               </li>
             ))}
           </ul>
           <form onSubmit={add} className="flex gap-2 pt-1 border-t border-slate-100">
-            <input 
-              type="text" 
-              value={input} 
-              onChange={e => setInput(e.target.value)} 
-              placeholder={t.placeholder} 
-              className="flex-1 text-xs px-3 py-2 border rounded-xl outline-none focus:border-indigo-500" 
-            />
-            <button type="submit" className="bg-indigo-600 hover:bg-indigo-700 text-white px-3 py-2 rounded-xl font-bold text-sm transition">
-              +
-            </button>
+            <input type="text" value={input} onChange={e => setInput(e.target.value)} placeholder={t.placeholder} className="flex-1 text-xs px-3 py-2 border rounded-xl outline-none focus:border-indigo-500" />
+            <button type="submit" className="bg-indigo-600 hover:bg-indigo-700 text-white px-3 py-2 rounded-xl font-bold text-sm transition">+</button>
           </form>
         </div>
       );
@@ -721,13 +561,7 @@
       }, [running, time]);
 
       const format = (sec) => `${Math.floor(sec/60).toString().padStart(2,'0')}:${(sec%60).toString().padStart(2,'0')}`;
-
-      const handleSetTime = (mins) => {
-        const secs = mins * 60;
-        updateData({ initialTime: secs });
-        setTime(secs);
-        setRunning(false);
-      };
+      const handleSetTime = (mins) => { updateData({ initialTime: mins * 60 }); setTime(mins * 60); setRunning(false); };
 
       return (
         <div className="text-center">
@@ -735,28 +569,12 @@
             <div className="text-5xl font-mono font-bold tracking-tight">{format(time)}</div>
           </div>
           <div className="flex gap-2 justify-center mb-3">
-            <button 
-              onClick={() => setRunning(!running)} 
-              className="flex-1 bg-red-600 hover:bg-red-700 text-white py-2 rounded-xl text-xs font-bold shadow transition"
-            >
-              {running ? t.pause : t.start}
-            </button>
-            <button 
-              onClick={() => { setTime(initialTime); setRunning(false); }} 
-              className="px-4 bg-slate-200 hover:bg-slate-300 py-2 rounded-xl text-xs font-bold transition"
-            >
-              {t.reset}
-            </button>
+            <button onClick={() => setRunning(!running)} className="flex-1 bg-red-600 hover:bg-red-700 text-white py-2 rounded-xl text-xs font-bold shadow transition">{running ? t.pause : t.start}</button>
+            <button onClick={() => { setTime(initialTime); setRunning(false); }} className="px-4 bg-slate-200 hover:bg-slate-300 py-2 rounded-xl text-xs font-bold transition">{t.reset}</button>
           </div>
           <div className="flex gap-1.5">
             {[1, 5, 10, 15].map(m => (
-              <button 
-                key={m} 
-                onClick={() => handleSetTime(m)} 
-                className="flex-1 text-xs bg-slate-100 hover:bg-slate-200 border border-slate-200 py-1.5 rounded-lg font-bold"
-              >
-                {m}m
-              </button>
+              <button key={m} onClick={() => handleSetTime(m)} className="flex-1 text-xs bg-slate-100 hover:bg-slate-200 border border-slate-200 py-1.5 rounded-lg font-bold">{m}m</button>
             ))}
           </div>
         </div>
@@ -780,21 +598,13 @@
     function WorkModeWidget({ data, updateData, t }) {
       const mode = data.mode || 'whisper';
       const modes = [
-        { id: 'silence', icon: '🤫', label: t.silence },
-        { id: 'whisper', icon: '🗣️', label: t.whisper },
-        { id: 'ask', icon: '👥', label: t.ask },
-        { id: 'group', icon: '🤝', label: t.group }
+        { id: 'silence', icon: '🤫', label: t.silence }, { id: 'whisper', icon: '🗣️', label: t.whisper },
+        { id: 'ask', icon: '👥', label: t.ask }, { id: 'group', icon: '🤝', label: t.group }
       ];
       return (
         <div className="grid grid-cols-2 gap-2">
           {modes.map(m => (
-            <button 
-              key={m.id} 
-              onClick={() => updateData({ mode: m.id })} 
-              className={`p-3 rounded-xl flex flex-col items-center border transition-all ${
-                mode === m.id ? 'bg-indigo-50 border-indigo-500 shadow-sm scale-105 text-indigo-900' : 'bg-white border-slate-200 hover:border-slate-300 text-slate-600'
-              }`}
-            >
+            <button key={m.id} onClick={() => updateData({ mode: m.id })} className={`p-3 rounded-xl flex flex-col items-center border transition-all ${mode === m.id ? 'bg-indigo-50 border-indigo-500 shadow-sm scale-105 text-indigo-900' : 'bg-white border-slate-200 hover:border-slate-300 text-slate-600'}`}>
               <span className="text-2xl mb-1">{m.icon}</span>
               <span className="text-[11px] font-bold">{m.label}</span>
             </button>
@@ -812,16 +622,12 @@
       const pickRandom = () => {
         const arr = namesStr.split(/[,\n]/).map(n => n.trim()).filter(Boolean);
         if (arr.length === 0 || rolling) return;
-        
         setRolling(true);
         let ticks = 0;
         const interval = setInterval(() => {
           setSelected(arr[Math.floor(Math.random() * arr.length)]);
           ticks++;
-          if (ticks > 15) { 
-            clearInterval(interval); 
-            setRolling(false); 
-          }
+          if (ticks > 15) { clearInterval(interval); setRolling(false); }
         }, 80);
       };
 
@@ -829,35 +635,16 @@
         <div className="flex flex-col items-center text-center">
           {isEditing ? (
             <div className="w-full space-y-2">
-              <textarea 
-                value={namesStr} 
-                onChange={(e) => updateData({ names: e.target.value })} 
-                rows="4" 
-                className="w-full text-xs p-2 border rounded-xl outline-none" 
-                placeholder="Skriv namn separerade med kommatecken..." 
-              />
-              <button onClick={() => setIsEditing(false)} className="w-full bg-indigo-600 text-white py-1.5 rounded-xl text-xs font-bold">
-                Klar
-              </button>
+              <textarea value={namesStr} onChange={(e) => updateData({ names: e.target.value })} rows="4" className="w-full text-xs p-2 border rounded-xl outline-none" placeholder="Names..." />
+              <button onClick={() => setIsEditing(false)} className="w-full bg-indigo-600 text-white py-1.5 rounded-xl text-xs font-bold">OK</button>
             </div>
           ) : (
             <div className="w-full relative">
-              <button 
-                onClick={() => setIsEditing(true)} 
-                className="absolute top-2 right-2 text-xs text-white/80 hover:text-white bg-black/20 px-2 py-1 rounded-lg"
-              >
-                ⚙️ Redigera
-              </button>
+              <button onClick={() => setIsEditing(true)} className="absolute top-2 right-2 text-xs text-white/80 hover:text-white bg-black/20 px-2 py-1 rounded-lg">⚙️</button>
               <div className="w-full py-6 bg-gradient-to-br from-red-600 to-rose-700 rounded-2xl text-white shadow-inner mb-3">
                 <div className={`text-3xl font-bold ${rolling ? 'scale-110' : ''}`}>{selected}</div>
               </div>
-              <button 
-                onClick={pickRandom} 
-                disabled={rolling} 
-                className="bg-slate-900 hover:bg-slate-800 text-white px-4 py-2.5 rounded-xl font-bold text-xs w-full transition active:scale-95"
-              >
-                {t.chooseRandom}
-              </button>
+              <button onClick={pickRandom} disabled={rolling} className="bg-slate-900 hover:bg-slate-800 text-white px-4 py-2.5 rounded-xl font-bold text-xs w-full transition active:scale-95">{t.chooseRandom}</button>
             </div>
           )}
         </div>
@@ -884,72 +671,15 @@
         <div className="text-center space-y-3">
           <div className="flex justify-center gap-3 py-2 items-center h-20">
             {dice.map((val, i) => (
-              <div key={i} className={`w-12 h-12 bg-white border-2 border-slate-200 rounded-xl shadow-md flex items-center justify-center text-2xl font-black transition-transform ${rolling ? 'rotate-12 scale-110' : ''}`}>
-                {val}
-              </div>
+              <div key={i} className={`w-12 h-12 bg-white border-2 border-slate-200 rounded-xl shadow-md flex items-center justify-center text-2xl font-black transition-transform ${rolling ? 'rotate-12 scale-110' : ''}`}>{val}</div>
             ))}
           </div>
           <div className="flex justify-center gap-2">
             {[1, 2, 3].map(n => (
-              <button 
-                key={n} 
-                onClick={() => { updateData({ count: n }); setDice(Array.from({ length: n }, () => 1)); }} 
-                className={`px-3 py-1 rounded-lg text-xs font-bold border transition ${count === n ? 'bg-slate-800 text-white' : 'bg-white'}`}
-              >
-                {n}
-              </button>
+              <button key={n} onClick={() => { updateData({ count: n }); setDice(Array.from({ length: n }, () => 1)); }} className={`px-3 py-1 rounded-lg text-xs font-bold border transition ${count === n ? 'bg-slate-800 text-white' : 'bg-white'}`}>{n}</button>
             ))}
           </div>
-          <button onClick={roll} disabled={rolling} className="w-full bg-pink-600 hover:bg-pink-700 text-white py-2 rounded-xl text-xs font-bold shadow transition active:scale-95">
-            {t.rollDice}
-          </button>
-        </div>
-      );
-    }
-
-    function NoiseMeterWidget({ t }) {
-      const [level, setLevel] = useState(15);
-      const [active, setActive] = useState(false);
-      const intervalRef = useRef(null);
-
-      const toggleMic = () => {
-        if (active) {
-          clearInterval(intervalRef.current);
-          setActive(false);
-          setLevel(15);
-        } else {
-          setActive(true);
-          intervalRef.current = setInterval(() => {
-            setLevel(prev => Math.max(5, Math.min(95, prev + (Math.random() - 0.5) * 35)));
-          }, 200);
-        }
-      };
-
-      useEffect(() => { return () => clearInterval(intervalRef.current); }, []);
-
-      return (
-        <div className="space-y-3">
-          <div className="bg-slate-50 border p-3 rounded-xl relative overflow-hidden">
-            <div className="flex justify-between text-xs font-bold mb-2">
-              <span className="text-slate-500">{active ? 'PÅ' : 'AV'}</span>
-              <span className={level > 80 ? "text-red-600" : "text-emerald-600"}>
-                {level > 80 ? t.tooLoud : t.acceptable}
-              </span>
-            </div>
-            <div className="h-5 bg-slate-200 rounded-full w-full overflow-hidden relative">
-              <div 
-                className={`h-full transition-all duration-200 ${level > 80 ? 'bg-red-500' : level > 60 ? 'bg-yellow-400' : 'bg-emerald-500'}`} 
-                style={{ width: `${level}%` }} 
-              />
-              <div className="absolute top-0 bottom-0 w-1 bg-red-600 z-20" style={{ left: `80%` }} />
-            </div>
-          </div>
-          <button 
-            onClick={toggleMic} 
-            className={`w-full py-2 rounded-xl text-xs font-bold text-white shadow transition ${active ? 'bg-red-500 hover:bg-red-600' : 'bg-emerald-600 hover:bg-emerald-700'}`}
-          >
-            {active ? t.micStop : t.micStart}
-          </button>
+          <button onClick={roll} disabled={rolling} className="w-full bg-pink-600 hover:bg-pink-700 text-white py-2 rounded-xl text-xs font-bold shadow transition active:scale-95">{t.rollDice}</button>
         </div>
       );
     }
@@ -957,12 +687,23 @@
     function NotesWidget({ data, updateData }) {
       return (
         <div className="h-full flex flex-col">
-          <textarea 
-            value={data.text || ""} 
-            onChange={e => updateData({ text: e.target.value })} 
-            placeholder="Skriv dina instruktioner till klassen här..." 
-            className="w-full h-36 p-3 bg-amber-50/70 border border-amber-200 rounded-xl outline-none resize-none text-xs text-slate-800"
-          />
+          <textarea value={data.text || ""} onChange={e => updateData({ text: e.target.value })} className="w-full h-36 p-3 bg-amber-50/70 border border-amber-200 rounded-xl outline-none resize-none text-sm text-slate-800" />
+        </div>
+      );
+    }
+
+    function QrWidget({ data, updateData }) {
+      const [urlInput, setUrlInput] = useState(data.url || "https://classroom.google.com");
+      const submit = (e) => { e.preventDefault(); updateData({ url: urlInput }); };
+      const imgSrc = `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(data.url || "https://classroom.google.com")}`;
+      
+      return (
+        <div className="flex flex-col items-center space-y-3">
+          <div className="p-2 bg-white border rounded-xl shadow-sm"><img src={imgSrc} alt="QR" className="w-32 h-32" /></div>
+          <form onSubmit={submit} className="w-full flex gap-2">
+            <input type="text" value={urlInput} onChange={(e) => setUrlInput(e.target.value)} className="flex-1 px-2 py-1.5 text-xs border rounded-lg" />
+            <button type="submit" className="bg-indigo-600 text-white px-3 py-1.5 rounded-lg text-xs font-bold">OK</button>
+          </form>
         </div>
       );
     }
