@@ -159,7 +159,16 @@
         let initialData = {};
 
         switch(type) {
-          case 'agenda': initialData = { items: [] }; defaultWidth = 380; break;
+          case 'agenda': 
+            initialData = { 
+              items: [
+                { id: 1, text: "Närvarokontroll", icon: "📋", done: false },
+                { id: 2, text: "Tyst läsning", icon: "📖", done: false },
+                { id: 3, text: "Grupparbete", icon: "👥", done: false }
+              ] 
+            }; 
+            defaultWidth = 400; 
+            break;
           case 'timer': initialData = { time: 600 }; break;
           case 'traffic': initialData = { color: 'green' }; defaultWidth = 240; break;
           case 'work': initialData = { mode: 'whisper' }; defaultWidth = 320; break;
@@ -464,19 +473,56 @@
       return <div className="text-sm font-bold bg-white/10 px-4 py-1.5 rounded-xl border border-white/20 tracking-wider">{time.toLocaleTimeString([], { hour: '2-digit', minute:'2-digit' })}</div>;
     }
 
+    const AGENDA_ICONS = [
+      { icon: "📋", label: "Närvaro" },
+      { icon: "📖", label: "Läsning" },
+      { icon: "✍️", label: "Skriva" },
+      { icon: "🗣️", label: "Samtala" },
+      { icon: "👥", label: "Grupparbete" },
+      { icon: "💻", label: "Chromebook / Dator" },
+      { icon: "📐", label: "Matematik" },
+      { icon: "🎨", label: "Skapa / Bild" },
+      { icon: "🧪", label: "Laboration" },
+      { icon: "🎧", label: "Lyssna" },
+      { icon: "⭐", label: "Mål" },
+      { icon: "🔔", label: "Rast / Avslut" }
+    ];
+
     function AgendaWidget({ data, update, t }) {
       const items = data.items || [];
       const [input, setInput] = useState("");
+      const [selectedIcon, setSelectedIcon] = useState("📋");
       
       const toggle = (id) => update({ items: items.map(it => it.id === id ? { ...it, done: !it.done } : it) });
       const remove = (id) => {
         const newItems = items.filter(it => it.id !== id);
         update({ items: newItems }); 
       };
+      
+      const cycleIcon = (id) => {
+        const nextItems = items.map(it => {
+          if (it.id !== id) return it;
+          const currentIdx = AGENDA_ICONS.findIndex(x => x.icon === (it.icon || "📋"));
+          const nextIdx = (currentIdx + 1) % AGENDA_ICONS.length;
+          return { ...it, icon: AGENDA_ICONS[nextIdx].icon };
+        });
+        update({ items: nextItems });
+      };
+
       const add = (e) => { 
         e.preventDefault(); 
         if (input.trim()) { 
-          update({ items: [...items, { id: Date.now() + Math.random(), text: input.trim(), done: false }] }); 
+          update({ 
+            items: [
+              ...items, 
+              { 
+                id: Date.now() + Math.random(), 
+                text: input.trim(), 
+                icon: selectedIcon, 
+                done: false 
+              }
+            ] 
+          }); 
           setInput(''); 
         } 
       };
@@ -486,18 +532,76 @@
           <ul className="space-y-2 max-h-60 overflow-y-auto pr-1">
             {items.length === 0 && <p className="text-sm text-slate-400 italic text-center py-6">{t.emptyAgenda}</p>}
             {items.map(it => (
-              <li key={it.id} className={`flex items-center justify-between p-2.5 rounded-2xl border-2 transition ${it.done ? 'bg-slate-50 opacity-60 line-through border-transparent' : 'bg-white shadow-sm border-slate-100'}`}>
-                <div className="flex items-center gap-3 overflow-hidden cursor-pointer flex-1" onClick={() => toggle(it.id)}>
-                  <div className={`w-6 h-6 rounded-lg flex items-center justify-center text-sm font-bold text-white transition-colors ${it.done ? 'bg-emerald-500' : 'bg-slate-200'}`}>{it.done ? '✓' : ''}</div>
-                  <span className="text-sm font-bold truncate text-slate-800">{it.text}</span>
+              <li key={it.id} className={`flex items-center justify-between p-2.5 rounded-2xl border-2 transition ${it.done ? 'bg-slate-50 opacity-60 border-transparent' : 'bg-white shadow-sm border-slate-100 hover:border-slate-200'}`}>
+                <div className="flex items-center gap-2.5 overflow-hidden flex-1">
+                  {/* Kryssruta */}
+                  <div 
+                    onClick={() => toggle(it.id)} 
+                    className={`w-6 h-6 rounded-lg flex items-center justify-center text-xs font-bold cursor-pointer transition-colors shrink-0 ${it.done ? 'bg-emerald-500 text-white' : 'bg-slate-100 border border-slate-300 hover:bg-slate-200 text-transparent'}`}
+                  >
+                    ✓
+                  </div>
+                  
+                  {/* Gullig klickbar ikon som kan bytas */}
+                  <button 
+                    type="button"
+                    onClick={() => cycleIcon(it.id)} 
+                    title="Klicka för att byta symbol" 
+                    className="w-9 h-9 flex items-center justify-center text-xl bg-slate-100 hover:bg-indigo-100 hover:scale-110 active:scale-95 rounded-xl border border-slate-200/80 transition-all shrink-0 cursor-pointer"
+                  >
+                    {it.icon || "📋"}
+                  </button>
+
+                  {/* Lektionstext */}
+                  <span 
+                    onClick={() => toggle(it.id)} 
+                    className={`text-sm font-bold truncate cursor-pointer select-none ${it.done ? 'line-through text-slate-400' : 'text-slate-800'}`}
+                  >
+                    {it.text}
+                  </span>
                 </div>
-                <button onClick={() => remove(it.id)} className="w-8 h-8 flex items-center justify-center text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-xl transition bg-white ml-2">🗑️</button>
+
+                {/* Ta bort-knapp */}
+                <button 
+                  onClick={() => remove(it.id)} 
+                  title="Ta bort punkt"
+                  className="w-8 h-8 flex items-center justify-center text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-xl transition ml-2 shrink-0"
+                >
+                  🗑️
+                </button>
               </li>
             ))}
           </ul>
-          <form onSubmit={add} className="flex gap-2">
-            <input type="text" value={input} onChange={e => setInput(e.target.value)} placeholder={t.placeholder} className="flex-1 text-sm font-medium px-4 py-2.5 border-2 border-slate-200 rounded-xl outline-none focus:border-indigo-500 bg-white" />
-            <button type="submit" className="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2.5 rounded-xl font-bold transition active:scale-95">{t.add}</button>
+
+          {/* Formulär för att lägga till ny punkt med ikonväljare */}
+          <form onSubmit={add} className="flex gap-2 items-center">
+            <div className="relative">
+              <select 
+                value={selectedIcon} 
+                onChange={e => setSelectedIcon(e.target.value)} 
+                title="Välj symbol för momentet"
+                className="appearance-none bg-slate-100 hover:bg-slate-200 text-lg px-2.5 py-2 rounded-xl border-2 border-slate-200 outline-none cursor-pointer focus:border-indigo-500 transition text-center"
+              >
+                {AGENDA_ICONS.map(item => (
+                  <option key={item.icon} value={item.icon}>
+                    {item.icon} {item.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <input 
+              type="text" 
+              value={input} 
+              onChange={e => setInput(e.target.value)} 
+              placeholder={t.placeholder} 
+              className="flex-1 text-sm font-medium px-4 py-2 border-2 border-slate-200 rounded-xl outline-none focus:border-indigo-500 bg-white" 
+            />
+            <button 
+              type="submit" 
+              className="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-xl font-bold transition active:scale-95 text-sm shrink-0 shadow-sm"
+            >
+              {t.add}
+            </button>
           </form>
         </div>
       );
