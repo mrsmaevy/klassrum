@@ -144,7 +144,7 @@
 
             const App = () => {
                 const [bg, setBg] = useState('https://images.unsplash.com/photo-1507525428034-b723cf961d3e?auto=format&fit=crop&w=1920&q=80');
-                const [widgets, setWidgets] = useState({ agenda: false, notes: false, dice: false, workformat: false, randomizer: false, group: false, timer: false, checkin: false, exitticket: false });
+                const [widgets, setWidgets] = useState({ clock: false, agenda: false, notes: false, dice: false, workformat: false, randomizer: false, group: false, timer: false, checkin: false, exitticket: false });
                 const [stickers, setStickers] = useState([]);
                 
                 const [showStickerMenu, setShowStickerMenu] = useState(false);
@@ -199,7 +199,7 @@
 
                 const loadTemplate = (tmpl) => {
                     setBg(tmpl.bg);
-                    let newWidgets = { agenda: false, notes: false, dice: false, workformat: false, randomizer: false, group: false, timer: false, checkin: false, exitticket: false };
+                    let newWidgets = { clock: false, agenda: false, notes: false, dice: false, workformat: false, randomizer: false, group: false, timer: false, checkin: false, exitticket: false };
                     if(tmpl.activeWidgets) {
                         tmpl.activeWidgets.forEach(w => newWidgets[w] = true);
                     }
@@ -252,7 +252,7 @@
                                 <button onClick={() => setShowBgMenu(!showBgMenu)} className="px-4 py-2 bg-gray-100 text-gray-800 rounded-lg font-bold shadow hover:bg-gray-200">
                                     🌄 Bakgrund
                                 </button>
-                                <button onClick={() => { setWidgets({ agenda: false, notes: false, dice: false, workformat: false, randomizer: false, group: false, timer: false, checkin: false, exitticket: false }); setStickers([]); }} className="px-4 py-2 bg-red-100 text-red-700 rounded-lg font-bold shadow hover:bg-red-200">
+                                <button onClick={() => { setWidgets({ clock: false, agenda: false, notes: false, dice: false, workformat: false, randomizer: false, group: false, timer: false, checkin: false, exitticket: false }); setStickers([]); }} className="px-4 py-2 bg-red-100 text-red-700 rounded-lg font-bold shadow hover:bg-red-200">
                                     🗑️ Rensa tavlan
                                 </button>
                             </div>
@@ -333,6 +333,7 @@
                         ))}
 
                         {/* Widgets */}
+                        {widgets.clock && <ClockWidget onClose={() => toggleWidget('clock')} />}
                         {widgets.agenda && <AgendaWidget onClose={() => toggleWidget('agenda')} />}
                         {widgets.notes && <NotesWidget onClose={() => toggleWidget('notes')} />}
                         {widgets.dice && <DiceWidget onClose={() => toggleWidget('dice')} />}
@@ -367,15 +368,17 @@
 
                         {/* Docka i botten */}
                         <div className="dock">
+                            <button className="dock-btn" onClick={() => toggleWidget('clock')}><span className="dock-icon">🕒</span><span className="dock-label">Klocka</span></button>
+                            <button className="dock-btn" onClick={() => toggleWidget('timer')}><span className="dock-icon">⏳</span><span className="dock-label">Timer</span></button>
+                            <div className="w-px bg-gray-600 mx-1"></div>
                             <button className="dock-btn" onClick={() => toggleWidget('agenda')}><span className="dock-icon">📋</span><span className="dock-label">Agenda</span></button>
                             <button className="dock-btn" onClick={() => toggleWidget('notes')}><span className="dock-icon">📝</span><span className="dock-label">Anteckningar</span></button>
                             <button className="dock-btn" onClick={() => toggleWidget('dice')}><span className="dock-icon">🎲</span><span className="dock-label">Tärning</span></button>
                             <button className="dock-btn" onClick={() => toggleWidget('workformat')}><span className="dock-icon">🤫</span><span className="dock-label">Arbetsform</span></button>
                             <button className="dock-btn" onClick={() => toggleWidget('randomizer')}><span className="dock-icon">🎯</span><span className="dock-label">Slumpa elev</span></button>
                             <button className="dock-btn" onClick={() => toggleWidget('group')}><span className="dock-icon">👥</span><span className="dock-label">Grupper</span></button>
-                            <button className="dock-btn" onClick={() => toggleWidget('timer')}><span className="dock-icon">⏳</span><span className="dock-label">Timer</span></button>
-                            <button className="dock-btn" onClick={() => setShowStickerMenu(!showStickerMenu)}><span className="dock-icon">✨</span><span className="dock-label">Stickers</span></button>
                             <div className="w-px bg-gray-600 mx-1"></div>
+                            <button className="dock-btn" onClick={() => setShowStickerMenu(!showStickerMenu)}><span className="dock-icon">✨</span><span className="dock-label">Stickers</span></button>
                             <button className="dock-btn" onClick={() => toggleWidget('checkin')}><span className="dock-icon">😊</span><span className="dock-label">Incheckning</span></button>
                             <button className="dock-btn" onClick={() => toggleWidget('exitticket')}><span className="dock-icon">📌</span><span className="dock-label">Exit Ticket</span></button>
                         </div>
@@ -383,7 +386,7 @@
                 );
             };
 
-            // Sticker med enbart ett diskret kryss
+            // Diskretare, svagare kryss på Stickers
             const Sticker = ({ sticker, onRemove }) => {
                 const [pos, handleDrag] = useDraggable({ x: sticker.x, y: sticker.y });
 
@@ -397,8 +400,8 @@
                         </div>
                         <button 
                             onClick={(e) => { e.stopPropagation(); onRemove(sticker.id); }} 
-                            title="Ta bort sticker"
-                            className="absolute -top-1 -right-1 bg-white hover:bg-red-500 hover:text-white text-gray-500 rounded-full w-5 h-5 flex items-center justify-center text-[10px] font-bold shadow border border-gray-200 transition-colors z-50">
+                            title="Ta bort"
+                            className="absolute -top-1 -right-1 bg-white/40 hover:bg-red-500 hover:text-white text-gray-400 rounded-full w-5 h-5 flex items-center justify-center text-[10px] font-bold shadow-sm border border-gray-100 transition-all opacity-40 hover:opacity-100 z-50">
                             ✕
                         </button>
                     </div>
@@ -438,6 +441,29 @@
                         </div>
                         <div className="resize-handle" onMouseDown={handleResize} onTouchStart={handleResize}>⌟</div>
                     </div>
+                );
+            };
+
+            // 0. Ny Klock-widget
+            const ClockWidget = ({ onClose }) => {
+                const [time, setTime] = useState(new Date());
+
+                useEffect(() => {
+                    const timer = setInterval(() => setTime(new Date()), 1000);
+                    return () => clearInterval(timer);
+                }, []);
+
+                return (
+                    <WidgetWrapper title="🕒 Klocka" onClose={onClose} initialSize={{w: 280, h: 180}}>
+                        <div className="flex flex-col items-center justify-center h-full">
+                            <div className="text-[54px] leading-none font-sans font-extrabold tabular-nums tracking-wide text-gray-800 drop-shadow-sm">
+                                {time.toLocaleTimeString('sv-SE', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
+                            </div>
+                            <div className="text-lg text-gray-500 font-bold mt-2 uppercase tracking-widest">
+                                {time.toLocaleDateString('sv-SE', { weekday: 'long', day: 'numeric', month: 'long' })}
+                            </div>
+                        </div>
+                    </WidgetWrapper>
                 );
             };
 
@@ -490,21 +516,50 @@
                 );
             };
 
-            // 2. Tärning
+            // Visual Die-Component
+            const Die = ({ val, rolling }) => {
+                const dots = {
+                    1: [4],
+                    2: [2, 6],
+                    3: [2, 4, 6],
+                    4: [0, 2, 6, 8],
+                    5: [0, 2, 4, 6, 8],
+                    6: [0, 2, 3, 5, 6, 8]
+                }[val] || [4];
+                
+                return (
+                    <div className={`w-20 h-20 bg-white rounded-2xl shadow-md border border-gray-200 grid grid-cols-3 grid-rows-3 p-3 gap-1 transition-transform ${rolling ? 'animate-bounce' : ''}`}>
+                        {[...Array(9)].map((_, i) => (
+                            <div key={i} className={`rounded-full ${dots.includes(i) ? 'bg-gray-800' : 'bg-transparent'}`}></div>
+                        ))}
+                    </div>
+                );
+            };
+
+            // 2. Riktiga grafiska tärningar
             const DiceWidget = ({ onClose }) => {
                 const [count, setCount] = useState(2);
                 const [vals, setVals] = useState([3, 5]);
-                const faces = ['⚀','⚁','⚂','⚃','⚄','⚅'];
+                const [rolling, setRolling] = useState(false);
 
                 const roll = () => {
-                    if (count === 1) {
-                        setVals([Math.floor(Math.random() * 6) + 1]);
-                    } else {
-                        setVals([Math.floor(Math.random() * 6) + 1, Math.floor(Math.random() * 6) + 1]);
-                    }
+                    if (rolling) return;
+                    setRolling(true);
+                    let times = 0;
+                    const interval = setInterval(() => {
+                        setVals(count === 1 
+                            ? [Math.floor(Math.random() * 6) + 1] 
+                            : [Math.floor(Math.random() * 6) + 1, Math.floor(Math.random() * 6) + 1]);
+                        times++;
+                        if (times > 10) {
+                            clearInterval(interval);
+                            setRolling(false);
+                        }
+                    }, 50);
                 };
 
                 const switchCount = (c) => {
+                    if (rolling) return;
                     setCount(c);
                     if (c === 1) setVals([vals[0] || 1]);
                     else setVals([vals[0] || 1, Math.floor(Math.random() * 6) + 1]);
@@ -513,25 +568,23 @@
                 const sum = vals.reduce((a, b) => a + b, 0);
 
                 return (
-                    <WidgetWrapper title="🎲 Tärning" onClose={onClose} initialSize={{w: 260, h: 290}}>
+                    <WidgetWrapper title="🎲 Tärning" onClose={onClose} initialSize={{w: 280, h: 320}}>
                         <div className="flex flex-col items-center justify-between h-full py-2">
                             <div className="flex bg-gray-100 p-1 rounded-xl">
                                 <button onClick={() => switchCount(1)} className={`px-3 py-1 rounded-lg text-xs font-bold transition-colors ${count === 1 ? 'bg-white text-blue-600 shadow' : 'text-gray-500'}`}>1 tärning</button>
                                 <button onClick={() => switchCount(2)} className={`px-3 py-1 rounded-lg text-xs font-bold transition-colors ${count === 2 ? 'bg-white text-blue-600 shadow' : 'text-gray-500'}`}>2 tärningar</button>
                             </div>
-                            <div className="flex items-center justify-center gap-4 py-2">
-                                {vals.map((v, i) => (
-                                    <span key={i} className="text-7xl leading-none text-gray-800 drop-shadow select-none">
-                                        {faces[v - 1]}
-                                    </span>
-                                ))}
+                            <div className="flex items-center justify-center gap-4 py-4 flex-1">
+                                {vals.map((v, i) => <Die key={i} val={v} rolling={rolling} />)}
                             </div>
-                            {count === 2 && (
-                                <div className="text-sm font-bold text-gray-600 bg-gray-100 px-3 py-1 rounded-full">
-                                    Summa: <span className="text-blue-600 text-base">{sum}</span>
+                            {count === 2 && !rolling && (
+                                <div className="text-sm font-bold text-gray-600 bg-gray-100 px-4 py-1.5 rounded-full mb-2">
+                                    Summa: <span className="text-blue-600 text-lg">{sum}</span>
                                 </div>
                             )}
-                            <button onClick={roll} className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-2.5 rounded-xl shadow transition-transform active:scale-95 text-base mt-2">
+                            {rolling && count === 2 && <div className="h-8 mb-2"></div>}
+                            
+                            <button onClick={roll} disabled={rolling} className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 rounded-xl shadow transition-transform active:scale-95 text-base disabled:opacity-50">
                                 Kasta tärning
                             </button>
                         </div>
@@ -681,9 +734,10 @@
                 );
             };
 
-            // 7. Timer med runda nollor
+            // 7. Visuell Time-Timer
             const TimerWidget = ({ onClose }) => {
                 const [time, setTime] = useState(10 * 60);
+                const [initialTime, setInitialTime] = useState(10 * 60);
                 const [isRunning, setIsRunning] = useState(false);
 
                 useEffect(() => {
@@ -696,24 +750,43 @@
                     return () => clearInterval(interval);
                 }, [isRunning, time]);
 
+                const changeTime = (delta) => {
+                    const newTime = Math.max(0, time + delta);
+                    setTime(newTime);
+                    setInitialTime(newTime);
+                    setIsRunning(false); // Pausar automatiskt vid ändring
+                };
+
                 const m = Math.floor(time / 60).toString().padStart(2, '0');
                 const s = (time % 60).toString().padStart(2, '0');
+                
+                // Räkna ut procent för den röda cirkeln
+                const pct = initialTime > 0 ? (time / initialTime) * 100 : 0;
 
                 return (
-                    <WidgetWrapper title="⏳ Timer" onClose={onClose} initialSize={{w: 300, h: 250}}>
-                        <div className="flex flex-col items-center justify-center h-full gap-4">
-                            <div className={`text-7xl font-sans font-extrabold tabular-nums tracking-wide ${time === 0 ? 'text-red-500 animate-pulse' : 'text-gray-800'}`}>
-                                {m}:{s}
+                    <WidgetWrapper title="⏳ Time Timer" onClose={onClose} initialSize={{w: 320, h: 360}}>
+                        <div className="flex flex-col items-center justify-between h-full py-2">
+                            
+                            {/* Röd Visuell Timer */}
+                            <div 
+                                className="relative w-44 h-44 rounded-full shadow-inner flex items-center justify-center transition-all duration-1000 ease-linear" 
+                                style={{ background: `conic-gradient(#ef4444 ${pct}%, #e5e7eb ${pct}%)` }}
+                            >
+                                <div className={`bg-white/85 px-4 py-2 rounded-xl backdrop-blur shadow-sm text-4xl font-sans font-extrabold tabular-nums tracking-wide ${time === 0 ? 'text-red-500 animate-pulse' : 'text-gray-800'}`}>
+                                    {m}:{s}
+                                </div>
                             </div>
-                            <div className="flex gap-2">
-                                <button onClick={() => setTime(t => Math.max(0, t - 60))} className="bg-gray-100 hover:bg-gray-200 px-4 py-2 rounded-lg font-bold">- 1 min</button>
-                                <button onClick={() => setTime(t => t + 60)} className="bg-gray-100 hover:bg-gray-200 px-4 py-2 rounded-lg font-bold">+ 1 min</button>
+
+                            <div className="flex gap-2 w-full mt-4">
+                                <button onClick={() => changeTime(-60)} className="flex-1 bg-gray-100 hover:bg-gray-200 py-2 rounded-lg font-bold text-sm text-gray-700">- 1 min</button>
+                                <button onClick={() => changeTime(60)} className="flex-1 bg-gray-100 hover:bg-gray-200 py-2 rounded-lg font-bold text-sm text-gray-700">+ 1 min</button>
                             </div>
+                            
                             <div className="flex gap-2 w-full mt-2">
-                                <button onClick={() => setIsRunning(!isRunning)} className={`flex-1 text-white font-bold py-3 rounded-xl shadow ${isRunning ? 'bg-orange-500' : 'bg-green-500'}`}>
+                                <button onClick={() => setIsRunning(!isRunning)} className={`flex-2 w-2/3 text-white font-bold py-3 rounded-xl shadow ${isRunning ? 'bg-orange-500' : 'bg-green-500'}`}>
                                     {isRunning ? 'Paus' : 'Starta'}
                                 </button>
-                                <button onClick={() => { setIsRunning(false); setTime(10 * 60); }} className="flex-1 bg-red-500 text-white font-bold py-3 rounded-xl shadow">
+                                <button onClick={() => { setIsRunning(false); setTime(10 * 60); setInitialTime(10 * 60); }} className="flex-1 bg-red-500 hover:bg-red-600 text-white font-bold py-3 rounded-xl shadow">
                                     Återställ
                                 </button>
                             </div>
