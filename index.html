@@ -215,12 +215,8 @@
                 };
 
                 const addSticker = (emoji) => {
-                    setStickers(prev => [...prev, { id: Date.now(), emoji, x: window.innerWidth / 2 - 40, y: window.innerHeight / 2 - 40, size: 64 }]);
+                    setStickers(prev => [...prev, { id: Date.now(), emoji, x: window.innerWidth / 2 - 40, y: window.innerHeight / 2 - 40 }]);
                     setShowStickerMenu(false);
-                };
-
-                const updateStickerSize = (id, newSize) => {
-                    setStickers(prev => prev.map(s => s.id === id ? { ...s, size: newSize } : s));
                 };
 
                 const stickerCategories = {
@@ -333,7 +329,6 @@
                                 key={s.id} 
                                 sticker={s} 
                                 onRemove={(id) => setStickers(prev => prev.filter(st => st.id !== id))} 
-                                onUpdateSize={updateStickerSize}
                             />
                         ))}
 
@@ -388,41 +383,24 @@
                 );
             };
 
-            // Sticker med storleksknappar (+ / -) och kryss (✕)
-            const Sticker = ({ sticker, onRemove, onUpdateSize }) => {
+            // Sticker med enbart ett diskret kryss
+            const Sticker = ({ sticker, onRemove }) => {
                 const [pos, handleDrag] = useDraggable({ x: sticker.x, y: sticker.y });
-                const size = sticker.size || 64;
 
                 return (
                     <div className="sticker group" style={{ left: pos.x, top: pos.y }}>
                         <div 
                             onMouseDown={handleDrag} 
                             onTouchStart={handleDrag} 
-                            style={{ fontSize: `${size}px`, lineHeight: 1 }}
-                            className="cursor-grab active:cursor-grabbing select-none drop-shadow-md">
+                            className="cursor-grab active:cursor-grabbing select-none drop-shadow-md text-[64px] leading-none">
                             {sticker.emoji}
                         </div>
-                        {/* Kontrollpanel för storlek & borttagning */}
-                        <div className="absolute -top-3 -right-8 flex items-center bg-white/95 backdrop-blur px-1.5 py-0.5 rounded-full shadow border border-gray-200 gap-1 z-50">
-                            <button 
-                                onClick={(e) => { e.stopPropagation(); onUpdateSize(sticker.id, Math.max(32, size - 16)); }} 
-                                title="Mindre" 
-                                className="w-5 h-5 flex items-center justify-center text-xs font-bold text-gray-600 hover:bg-gray-100 rounded-full">
-                                －
-                            </button>
-                            <button 
-                                onClick={(e) => { e.stopPropagation(); onUpdateSize(sticker.id, Math.min(180, size + 16)); }} 
-                                title="Större" 
-                                className="w-5 h-5 flex items-center justify-center text-xs font-bold text-gray-600 hover:bg-gray-100 rounded-full">
-                                ＋
-                            </button>
-                            <button 
-                                onClick={(e) => { e.stopPropagation(); onRemove(sticker.id); }} 
-                                title="Ta bort" 
-                                className="w-5 h-5 flex items-center justify-center text-xs font-bold text-red-500 hover:bg-red-50 hover:text-red-700 rounded-full">
-                                ✕
-                            </button>
-                        </div>
+                        <button 
+                            onClick={(e) => { e.stopPropagation(); onRemove(sticker.id); }} 
+                            title="Ta bort sticker"
+                            className="absolute -top-1 -right-1 bg-white hover:bg-red-500 hover:text-white text-gray-500 rounded-full w-5 h-5 flex items-center justify-center text-[10px] font-bold shadow border border-gray-200 transition-colors z-50">
+                            ✕
+                        </button>
                     </div>
                 );
             };
@@ -512,9 +490,9 @@
                 );
             };
 
-            // 2. Tärning (1 eller 2 tärningar)
+            // 2. Tärning
             const DiceWidget = ({ onClose }) => {
-                const [count, setCount] = useState(2); // 1 eller 2
+                const [count, setCount] = useState(2);
                 const [vals, setVals] = useState([3, 5]);
                 const faces = ['⚀','⚁','⚂','⚃','⚄','⚅'];
 
@@ -537,13 +515,10 @@
                 return (
                     <WidgetWrapper title="🎲 Tärning" onClose={onClose} initialSize={{w: 260, h: 290}}>
                         <div className="flex flex-col items-center justify-between h-full py-2">
-                            {/* Växla mellan 1 eller 2 tärningar */}
                             <div className="flex bg-gray-100 p-1 rounded-xl">
                                 <button onClick={() => switchCount(1)} className={`px-3 py-1 rounded-lg text-xs font-bold transition-colors ${count === 1 ? 'bg-white text-blue-600 shadow' : 'text-gray-500'}`}>1 tärning</button>
                                 <button onClick={() => switchCount(2)} className={`px-3 py-1 rounded-lg text-xs font-bold transition-colors ${count === 2 ? 'bg-white text-blue-600 shadow' : 'text-gray-500'}`}>2 tärningar</button>
                             </div>
-
-                            {/* Tärningsvisning */}
                             <div className="flex items-center justify-center gap-4 py-2">
                                 {vals.map((v, i) => (
                                     <span key={i} className="text-7xl leading-none text-gray-800 drop-shadow select-none">
@@ -551,13 +526,11 @@
                                     </span>
                                 ))}
                             </div>
-
                             {count === 2 && (
                                 <div className="text-sm font-bold text-gray-600 bg-gray-100 px-3 py-1 rounded-full">
                                     Summa: <span className="text-blue-600 text-base">{sum}</span>
                                 </div>
                             )}
-
                             <button onClick={roll} className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-2.5 rounded-xl shadow transition-transform active:scale-95 text-base mt-2">
                                 Kasta tärning
                             </button>
@@ -566,7 +539,7 @@
                 );
             };
 
-            // 3. Arbetsform (Modern pedagogisk design, inget trafikljus)
+            // 3. Arbetsform
             const WorkFormatWidget = ({ onClose }) => {
                 const [activeIdx, setActiveIdx] = useState(0);
                 const formats = [
@@ -581,14 +554,11 @@
                 return (
                     <WidgetWrapper title="🤫 Arbetsform" onClose={onClose} initialSize={{w: 330, h: 360}}>
                         <div className="flex flex-col h-full justify-between">
-                            {/* Stor pedagogisk skylt som syns i hela klassrummet */}
                             <div className={`rounded-2xl p-6 text-white text-center shadow-lg bg-gradient-to-br ${current.color} transition-all duration-300 flex flex-col items-center justify-center flex-1 mb-4`}>
                                 <div className="text-6xl mb-2 select-none filter drop-shadow">{current.icon}</div>
                                 <h2 className="text-2xl font-extrabold tracking-wide">{current.title}</h2>
                                 <p className="text-xs text-white/90 font-medium mt-1">{current.sub}</p>
                             </div>
-
-                            {/* Valbara knappar i botten */}
                             <div className="grid grid-cols-2 gap-2">
                                 {formats.map((f, i) => (
                                     <button 
@@ -711,7 +681,7 @@
                 );
             };
 
-            // 7. Timer
+            // 7. Timer med runda nollor
             const TimerWidget = ({ onClose }) => {
                 const [time, setTime] = useState(10 * 60);
                 const [isRunning, setIsRunning] = useState(false);
@@ -732,7 +702,7 @@
                 return (
                     <WidgetWrapper title="⏳ Timer" onClose={onClose} initialSize={{w: 300, h: 250}}>
                         <div className="flex flex-col items-center justify-center h-full gap-4">
-                            <div className={`text-7xl font-mono font-bold ${time === 0 ? 'text-red-500 animate-pulse' : 'text-gray-800'}`}>
+                            <div className={`text-7xl font-sans font-extrabold tabular-nums tracking-wide ${time === 0 ? 'text-red-500 animate-pulse' : 'text-gray-800'}`}>
                                 {m}:{s}
                             </div>
                             <div className="flex gap-2">
