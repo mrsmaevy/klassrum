@@ -19,16 +19,16 @@
         body { margin: 0; overflow: hidden; background-color: #f0f4f8; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
         .bg-image { position: absolute; top: 0; left: 0; width: 100vw; height: 100vh; object-fit: cover; z-index: -1; }
         .widget { position: absolute; background: white; border-radius: 16px; box-shadow: 0 12px 30px rgba(0,0,0,0.18); display: flex; flex-direction: column; overflow: hidden; }
-        .widget-header { background: #f8fafc; padding: 12px 16px; cursor: grab; font-weight: bold; border-bottom: 1px solid #e2e8f0; display: flex; justify-content: space-between; align-items: center; user-select: none; }
+        .widget-header { background: #f8fafc; padding: 12px 16px; cursor: grab; font-weight: bold; border-bottom: 1px solid #e2e8f0; display: flex; justify-content: space-between; align-items: center; user-select: none; touch-action: none; }
         .widget-header:active { cursor: grabbing; }
-        .resize-handle { position: absolute; bottom: 0; right: 0; width: 22px; height: 22px; cursor: nwse-resize; display: flex; align-items: flex-end; justify-content: flex-end; padding: 4px; color: #94a3b8; user-select: none; }
+        .resize-handle { position: absolute; bottom: 0; right: 0; width: 24px; height: 24px; cursor: nwse-resize; display: flex; align-items: flex-end; justify-content: flex-end; padding: 4px; color: #94a3b8; user-select: none; touch-action: none; }
         .dock { position: absolute; bottom: 20px; left: 50%; transform: translateX(-50%); background: #1e293b; padding: 10px 20px; border-radius: 20px; display: flex; gap: 14px; box-shadow: 0 10px 25px rgba(0,0,0,0.35); z-index: 100; max-width: 95vw; overflow-x: auto; }
         .dock-btn { background: none; border: none; color: white; display: flex; flex-direction: column; align-items: center; gap: 4px; cursor: pointer; transition: transform 0.2s; white-space: nowrap; }
         .dock-btn:hover { transform: translateY(-4px); color: #60a5fa; }
         .dock-icon { font-size: 22px; }
         .dock-label { font-size: 10px; text-transform: uppercase; letter-spacing: 0.5px; font-weight: 600; }
         .post-it { background: #fef08a; padding: 15px; box-shadow: 2px 4px 10px rgba(0,0,0,0.1); font-family: 'Comic Sans MS', cursive, sans-serif; position: relative; }
-        .sticker { position: absolute; user-select: none; transition: transform 0.1s; display: inline-block; }
+        .sticker { position: absolute; user-select: none; transition: transform 0.1s; display: inline-block; touch-action: none; }
         
         .custom-scrollbar::-webkit-scrollbar { width: 8px; }
         .custom-scrollbar::-webkit-scrollbar-track { background: #f1f5f9; border-radius: 4px; }
@@ -119,22 +119,61 @@
             ReactDOM.createRoot(document.getElementById('root')).render(<StudentExitTicket />);
         }
         else {
-            // --- LÄRARVY ---
-            const useDraggable = (initialPos) => {
+            // --- Stabil drag-hook för Smartboard ---
+            const useDraggable = (initialPos, onDragEnd) => {
                 const [pos, setPos] = useState(initialPos);
+                const posRef = useRef(pos);
+                posRef.current = pos;
+
+                useEffect(() => {
+                    if (initialPos) setPos(initialPos);
+                }, [initialPos?.x, initialPos?.y]);
+
                 const handleDrag = (e) => {
-                    if (e.target.tagName === 'BUTTON' || e.target.closest('button')) return;
+                    if (e.target.tagName === 'BUTTON' || e.target.closest('button') || e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT' || e.target.tagName === 'TEXTAREA') return;
+                    
                     if (e.type === 'touchstart') {
                         const touch = e.touches[0];
-                        let startX = touch.clientX - pos.x; let startY = touch.clientY - pos.y;
-                        const onTouchMove = (mE) => setPos({ x: mE.touches[0].clientX - startX, y: mE.touches[0].clientY - startY });
-                        const onTouchEnd = () => { document.removeEventListener('touchmove', onTouchMove); document.removeEventListener('touchend', onTouchEnd); };
-                        document.addEventListener('touchmove', onTouchMove);
+                        let startX = touch.clientX - posRef.current.x;
+                        let startY = touch.clientY - posRef.current.y;
+                        let currentPos = { ...posRef.current };
+
+                        const onTouchMove = (mE) => {
+                            if (mE.cancelable) mE.preventDefault();
+                            currentPos = {
+                                x: Math.max(0, mE.touches[0].clientX - startX),
+                                y: Math.max(0, mE.touches[0].clientY - startY)
+                            };
+                            setPos(currentPos);
+                        };
+
+                        const onTouchEnd = () => {
+                            document.removeEventListener('touchmove', onTouchMove);
+                            document.removeEventListener('touchend', onTouchEnd);
+                            if (onDragEnd) onDragEnd(currentPos);
+                        };
+
+                        document.addEventListener('touchmove', onTouchMove, { passive: false });
                         document.addEventListener('touchend', onTouchEnd);
                     } else {
-                        let startX = e.clientX - pos.x; let startY = e.clientY - pos.y;
-                        const onMouseMove = (mE) => setPos({ x: mE.clientX - startX, y: mE.clientY - startY });
-                        const onMouseUp = () => { document.removeEventListener('mousemove', onMouseMove); document.removeEventListener('mouseup', onMouseUp); };
+                        let startX = e.clientX - posRef.current.x;
+                        let startY = e.clientY - posRef.current.y;
+                        let currentPos = { ...posRef.current };
+
+                        const onMouseMove = (mE) => {
+                            currentPos = {
+                                x: Math.max(0, mE.clientX - startX),
+                                y: Math.max(0, mE.clientY - startY)
+                            };
+                            setPos(currentPos);
+                        };
+
+                        const onMouseUp = () => {
+                            document.removeEventListener('mousemove', onMouseMove);
+                            document.removeEventListener('mouseup', onMouseUp);
+                            if (onDragEnd) onDragEnd(currentPos);
+                        };
+
                         document.addEventListener('mousemove', onMouseMove);
                         document.addEventListener('mouseup', onMouseUp);
                     }
@@ -142,25 +181,51 @@
                 return [pos, handleDrag, setPos];
             };
 
+            const defaultLayout = {
+                clock: { x: 50, y: 80, w: 280, h: 180 },
+                timer: { x: 350, y: 80, w: 320, h: 360 },
+                agenda: { x: 50, y: 280, w: 320, h: 420 },
+                notes: { x: 700, y: 80, w: 380, h: 300 },
+                dice: { x: 400, y: 460, w: 280, h: 320 },
+                workformat: { x: 700, y: 400, w: 330, h: 360 },
+                randomizer: { x: 1050, y: 80, w: 320, h: 320 },
+                group: { x: 1050, y: 420, w: 400, h: 440 },
+                checkin: { x: 400, y: 150, w: 380, h: 440 },
+                exitticket: { x: 450, y: 150, w: 500, h: 480 }
+            };
+
             const App = () => {
-                // Aktiva moduler
                 const [bg, setBg] = useState('https://images.unsplash.com/photo-1507525428034-b723cf961d3e?auto=format&fit=crop&w=1920&q=80');
                 const [widgets, setWidgets] = useState({ clock: false, agenda: false, notes: false, dice: false, workformat: false, randomizer: false, group: false, timer: false, checkin: false, exitticket: false });
+                const [widgetLayout, setWidgetLayout] = useState(defaultLayout);
                 
-                // Innehåll i modulerna (sparas i mallen!)
+                // Innehåll och aktiva vyer (sparas permanent)
                 const [stickers, setStickers] = useState([]);
                 const [agendaItems, setAgendaItems] = useState([{ icon: '📖', text: 'Tyst läsning' }]);
+                const [agendaPresMode, setAgendaPresMode] = useState(false);
                 const [notesText, setNotesText] = useState('');
                 const [workFormatIdx, setWorkFormatIdx] = useState(0);
                 const [timerSeconds, setTimerSeconds] = useState(10 * 60);
                 const [namesList, setNamesList] = useState("Anna, Björn, Cecilia, David, Elin, Filip, Greta, Hugo, Ida, Johan");
+                
+                // Gruppskaparens tillstånd
+                const [createdGroups, setCreatedGroups] = useState([]);
+                const [numGroups, setNumGroups] = useState(2);
+
+                // Slumpa elev
+                const [randomizerChosen, setRandomizerChosen] = useState(null);
+
+                // Incheckning & Exit ticket
+                const [checkInQuestion, setCheckInQuestion] = useState("Hur mår du idag?");
+                const [checkInActive, setCheckInActive] = useState(false);
+                const [exitTicketQuestion, setExitTicketQuestion] = useState("Vad tar du med dig från lektionen?");
+                const [exitTicketActive, setExitTicketActive] = useState(false);
 
                 // Menyer
                 const [showStickerMenu, setShowStickerMenu] = useState(false);
                 const [showBgMenu, setShowBgMenu] = useState(false);
                 const [showCloudMenu, setShowCloudMenu] = useState(false);
                 
-                // Auth & Mallar
                 const [user, setUser] = useState(null);
                 const [templates, setTemplates] = useState([]);
                 
@@ -168,6 +233,13 @@
                 const baseUrl = window.location.href.split('?')[0];
 
                 const toggleWidget = (w) => setWidgets(prev => ({...prev, [w]: !prev[w]}));
+
+                const updateLayout = (wKey, updateData) => {
+                    setWidgetLayout(prev => ({
+                        ...prev,
+                        [wKey]: { ...prev[wKey], ...updateData }
+                    }));
+                };
                 
                 useEffect(() => {
                     const unsubscribe = window.firebaseApp.onAuthStateChanged(window.firebaseApp.auth, currentUser => {
@@ -194,7 +266,6 @@
 
                 const handleLogout = () => { window.firebaseApp.signOut(window.firebaseApp.auth); };
 
-                // Automatisk bildkomprimering
                 const handleImageUpload = (e) => {
                     const file = e.target.files[0];
                     if (!file) return;
@@ -221,10 +292,10 @@
                     reader.readAsDataURL(file);
                 };
 
-                // SPARA ALLT INNEHÅLL I MALLEN
+                // Spara all data och alla aktiva vyer i molnmallen
                 const saveTemplate = async () => {
                     if (!user) {
-                        alert("Du måste logga in med Google först för att kunna spara mallar!");
+                        alert("Logga in med Google först för att spara mallar!");
                         return;
                     }
                     const name = prompt("Namnge denna tavla (t.ex. 'Svenska Åk 7'):");
@@ -237,21 +308,30 @@
                             name: name,
                             bg: bg,
                             activeWidgets: activeWidgets,
+                            widgetLayout: widgetLayout,
                             stickers: stickers,
                             agendaItems: agendaItems,
+                            agendaPresMode: agendaPresMode,
                             notesText: notesText,
                             workFormatIdx: workFormatIdx,
                             timerSeconds: timerSeconds,
                             namesList: namesList,
+                            createdGroups: createdGroups,
+                            numGroups: numGroups,
+                            randomizerChosen: randomizerChosen,
+                            checkInQuestion: checkInQuestion,
+                            checkInActive: checkInActive,
+                            exitTicketQuestion: exitTicketQuestion,
+                            exitTicketActive: exitTicketActive,
                             timestamp: new Date()
                         });
-                        alert("Mallen med alla texter och inställningar har sparats i molnet! ☁️");
+                        alert("Mallen med alla grupper, placeringar och texter har sparats i molnet! ☁️");
                     } catch (err) {
                         alert("Kunde inte spara till molnet: " + err.message);
                     }
                 };
 
-                // LADDA ALLT INNEHÅLL FRÅN MALLEN
+                // Ladda mallen och återskapa exakt samma tillstånd
                 const loadTemplate = (tmpl) => {
                     if (tmpl.bg) setBg(tmpl.bg);
                     
@@ -261,15 +341,29 @@
                     }
                     setWidgets(newWidgets);
                     
-                    // Återställ allt sparat innehåll
+                    if (tmpl.widgetLayout) setWidgetLayout(tmpl.widgetLayout);
                     if (tmpl.stickers) setStickers(tmpl.stickers);
                     else setStickers([]);
                     
                     if (tmpl.agendaItems) setAgendaItems(tmpl.agendaItems);
+                    if (tmpl.agendaPresMode !== undefined) setAgendaPresMode(tmpl.agendaPresMode);
                     if (tmpl.notesText !== undefined) setNotesText(tmpl.notesText);
                     if (tmpl.workFormatIdx !== undefined) setWorkFormatIdx(tmpl.workFormatIdx);
                     if (tmpl.timerSeconds !== undefined) setTimerSeconds(tmpl.timerSeconds);
                     if (tmpl.namesList) setNamesList(tmpl.namesList);
+                    
+                    // Återställ grupper, vald elev och aktiva QR-vyer
+                    if (tmpl.createdGroups) setCreatedGroups(tmpl.createdGroups);
+                    else setCreatedGroups([]);
+                    if (tmpl.numGroups) setNumGroups(tmpl.numGroups);
+
+                    if (tmpl.randomizerChosen !== undefined) setRandomizerChosen(tmpl.randomizerChosen);
+                    
+                    if (tmpl.checkInQuestion) setCheckInQuestion(tmpl.checkInQuestion);
+                    if (tmpl.checkInActive !== undefined) setCheckInActive(tmpl.checkInActive);
+                    
+                    if (tmpl.exitTicketQuestion) setExitTicketQuestion(tmpl.exitTicketQuestion);
+                    if (tmpl.exitTicketActive !== undefined) setExitTicketActive(tmpl.exitTicketActive);
                     
                     setShowCloudMenu(false);
                 };
@@ -285,11 +379,20 @@
                     setShowStickerMenu(false);
                 };
 
+                const updateStickerPos = (id, newPos) => {
+                    setStickers(prev => prev.map(s => s.id === id ? { ...s, x: newPos.x, y: newPos.y } : s));
+                };
+
                 const resetBoard = () => {
                     setWidgets({ clock: false, agenda: false, notes: false, dice: false, workformat: false, randomizer: false, group: false, timer: false, checkin: false, exitticket: false });
                     setStickers([]);
                     setNotesText('');
                     setAgendaItems([{ icon: '📖', text: 'Tyst läsning' }]);
+                    setAgendaPresMode(false);
+                    setCreatedGroups([]);
+                    setRandomizerChosen(null);
+                    setCheckInActive(false);
+                    setExitTicketActive(false);
                 };
 
                 const stickerCategories = {
@@ -382,16 +485,12 @@
                                         <img key={i} src={b} onClick={() => { setBg(b); setShowBgMenu(false); }} className="w-full h-20 object-cover rounded-lg cursor-pointer hover:ring-4 hover:ring-blue-400 transition-all shadow" />
                                     ))}
                                 </div>
-                                
                                 <div className="border-t pt-3">
                                     <label className="flex items-center justify-center w-full bg-blue-600 hover:bg-blue-700 text-white cursor-pointer py-3 rounded-xl font-bold shadow-md text-sm transition-all">
                                         📁 Ladda upp egen bild (från datorn)
                                         <input type="file" className="hidden" accept="image/*" onChange={handleImageUpload} />
                                     </label>
                                 </div>
-                                <p className="text-[11px] text-gray-500 text-center mt-2 leading-tight">
-                                    Bilden optimeras automatiskt så att den kan sparas i molnet och visas på alla skärmar.
-                                </p>
                             </div>
                         )}
 
@@ -401,20 +500,91 @@
                                 key={s.id} 
                                 sticker={s} 
                                 onRemove={(id) => setStickers(prev => prev.filter(st => st.id !== id))} 
+                                onUpdatePos={updateStickerPos}
                             />
                         ))}
 
-                        {/* Widgets med bevarat innehåll */}
-                        {widgets.clock && <ClockWidget onClose={() => toggleWidget('clock')} />}
-                        {widgets.agenda && <AgendaWidget items={agendaItems} setItems={setAgendaItems} onClose={() => toggleWidget('agenda')} />}
-                        {widgets.notes && <NotesWidget text={notesText} setText={setNotesText} onClose={() => toggleWidget('notes')} />}
-                        {widgets.dice && <DiceWidget onClose={() => toggleWidget('dice')} />}
-                        {widgets.workformat && <WorkFormatWidget activeIdx={workFormatIdx} setActiveIdx={setWorkFormatIdx} onClose={() => toggleWidget('workformat')} />}
-                        {widgets.randomizer && <RandomizerWidget namesText={namesList} setNamesText={setNamesList} onClose={() => toggleWidget('randomizer')} />}
-                        {widgets.group && <GroupMakerWidget names={namesList} setNames={setNamesList} onClose={() => toggleWidget('group')} />}
-                        {widgets.timer && <TimerWidget initialSeconds={timerSeconds} setInitialSeconds={setTimerSeconds} onClose={() => toggleWidget('timer')} />}
-                        {widgets.checkin && <CheckInWidget onClose={() => toggleWidget('checkin')} boardId={boardIdRef.current} baseUrl={baseUrl} />}
-                        {widgets.exitticket && <ExitTicketWidget onClose={() => toggleWidget('exitticket')} boardId={boardIdRef.current} baseUrl={baseUrl} />}
+                        {/* Widgets med bevarat läge och innehåll */}
+                        {widgets.clock && (
+                            <WidgetWrapper title="🕒 Klocka" layout={widgetLayout.clock} onUpdateLayout={(d) => updateLayout('clock', d)} onClose={() => toggleWidget('clock')}>
+                                <ClockWidgetContent />
+                            </WidgetWrapper>
+                        )}
+
+                        {widgets.agenda && (
+                            <WidgetWrapper title="📋 Agenda" layout={widgetLayout.agenda} onUpdateLayout={(d) => updateLayout('agenda', d)} onClose={() => toggleWidget('agenda')}>
+                                <AgendaWidgetContent items={agendaItems} setItems={setAgendaItems} presMode={agendaPresMode} setPresMode={setAgendaPresMode} />
+                            </WidgetWrapper>
+                        )}
+
+                        {widgets.notes && (
+                            <WidgetWrapper title="📝 Anteckningar" layout={widgetLayout.notes} onUpdateLayout={(d) => updateLayout('notes', d)} onClose={() => toggleWidget('notes')}>
+                                <NotesWidgetContent text={notesText} setText={setNotesText} />
+                            </WidgetWrapper>
+                        )}
+
+                        {widgets.dice && (
+                            <WidgetWrapper title="🎲 Tärning" layout={widgetLayout.dice} onUpdateLayout={(d) => updateLayout('dice', d)} onClose={() => toggleWidget('dice')}>
+                                <DiceWidgetContent />
+                            </WidgetWrapper>
+                        )}
+
+                        {widgets.workformat && (
+                            <WidgetWrapper title="🤫 Arbetsform" layout={widgetLayout.workformat} onUpdateLayout={(d) => updateLayout('workformat', d)} onClose={() => toggleWidget('workformat')}>
+                                <WorkFormatWidgetContent activeIdx={workFormatIdx} setActiveIdx={setWorkFormatIdx} />
+                            </WidgetWrapper>
+                        )}
+
+                        {widgets.randomizer && (
+                            <WidgetWrapper title="🎯 Slumpa elev" layout={widgetLayout.randomizer} onUpdateLayout={(d) => updateLayout('randomizer', d)} onClose={() => toggleWidget('randomizer')}>
+                                <RandomizerWidgetContent namesText={namesList} setNamesText={setNamesList} chosen={randomizerChosen} setChosen={setRandomizerChosen} />
+                            </WidgetWrapper>
+                        )}
+
+                        {widgets.group && (
+                            <WidgetWrapper title="👥 Gruppskapare" layout={widgetLayout.group} onUpdateLayout={(d) => updateLayout('group', d)} onClose={() => toggleWidget('group')}>
+                                <GroupMakerWidgetContent 
+                                    names={namesList} 
+                                    setNames={setNamesList} 
+                                    groups={createdGroups} 
+                                    setGroups={setCreatedGroups} 
+                                    numGroups={numGroups} 
+                                    setNumGroups={setNumGroups} 
+                                />
+                            </WidgetWrapper>
+                        )}
+
+                        {widgets.timer && (
+                            <WidgetWrapper title="⏳ Time Timer" layout={widgetLayout.timer} onUpdateLayout={(d) => updateLayout('timer', d)} onClose={() => toggleWidget('timer')}>
+                                <TimerWidgetContent initialSeconds={timerSeconds} setInitialSeconds={setTimerSeconds} />
+                            </WidgetWrapper>
+                        )}
+
+                        {widgets.checkin && (
+                            <WidgetWrapper title="😊 Incheckning" layout={widgetLayout.checkin} onUpdateLayout={(d) => updateLayout('checkin', d)} onClose={() => toggleWidget('checkin')}>
+                                <CheckInWidgetContent 
+                                    boardId={boardIdRef.current} 
+                                    baseUrl={baseUrl} 
+                                    question={checkInQuestion} 
+                                    setQuestion={setCheckInQuestion} 
+                                    active={checkInActive} 
+                                    setActive={setCheckInActive} 
+                                />
+                            </WidgetWrapper>
+                        )}
+
+                        {widgets.exitticket && (
+                            <WidgetWrapper title="📌 Exit Ticket" layout={widgetLayout.exitticket} onUpdateLayout={(d) => updateLayout('exitticket', d)} onClose={() => toggleWidget('exitticket')}>
+                                <ExitTicketWidgetContent 
+                                    boardId={boardIdRef.current} 
+                                    baseUrl={baseUrl} 
+                                    question={exitTicketQuestion} 
+                                    setQuestion={setExitTicketQuestion} 
+                                    active={exitTicketActive} 
+                                    setActive={setExitTicketActive} 
+                                />
+                            </WidgetWrapper>
+                        )}
 
                         {/* Sticker Meny */}
                         {showStickerMenu && (
@@ -458,9 +628,12 @@
                 );
             };
 
-            // Diskretare, svagare kryss på Stickers
-            const Sticker = ({ sticker, onRemove }) => {
-                const [pos, handleDrag] = useDraggable({ x: sticker.x, y: sticker.y });
+            // Diskret sticker
+            const Sticker = ({ sticker, onRemove, onUpdatePos }) => {
+                const [pos, handleDrag] = useDraggable(
+                    { x: sticker.x, y: sticker.y },
+                    (newPos) => onUpdatePos && onUpdatePos(sticker.id, newPos)
+                );
 
                 return (
                     <div className="sticker group" style={{ left: pos.x, top: pos.y }}>
@@ -480,26 +653,52 @@
                 );
             };
 
-            const WidgetWrapper = ({ title, onClose, initialSize, children }) => {
-                const [pos, handleDrag] = useDraggable({ x: 80 + Math.random()*80, y: 80 + Math.random()*80 });
-                const [size, setSize] = useState(initialSize || { w: 320, h: 420 });
-                
+            // Fönsterram med synkad layout
+            const WidgetWrapper = ({ title, onClose, layout, onUpdateLayout, children }) => {
+                const [size, setSize] = useState({ w: layout?.w || 320, h: layout?.h || 420 });
+
+                useEffect(() => {
+                    if (layout?.w && layout?.h) {
+                        setSize({ w: layout.w, h: layout.h });
+                    }
+                }, [layout?.w, layout?.h]);
+
+                const [pos, handleDrag] = useDraggable(
+                    { x: layout?.x || 100, y: layout?.y || 100 },
+                    (newPos) => onUpdateLayout && onUpdateLayout({ x: newPos.x, y: newPos.y })
+                );
+
                 const handleResize = (e) => {
+                    e.stopPropagation();
                     const startX = e.clientX || (e.touches && e.touches[0].clientX);
                     const startY = e.clientY || (e.touches && e.touches[0].clientY);
-                    const startW = size.w; const startH = size.h;
-                    
+                    const startW = size.w;
+                    const startH = size.h;
+                    let newSize = { w: startW, h: startH };
+
                     const onMove = (moveE) => {
+                        if (moveE.cancelable) moveE.preventDefault();
                         const curX = moveE.clientX || (moveE.touches && moveE.touches[0].clientX);
                         const curY = moveE.clientY || (moveE.touches && moveE.touches[0].clientY);
-                        setSize({ w: Math.max(200, startW + (curX - startX)), h: Math.max(160, startH + (curY - startY)) });
+                        newSize = {
+                            w: Math.max(220, startW + (curX - startX)),
+                            h: Math.max(160, startH + (curY - startY))
+                        };
+                        setSize(newSize);
                     };
-                    const onEnd = () => { 
-                        document.removeEventListener('mousemove', onMove); document.removeEventListener('mouseup', onEnd); 
-                        document.removeEventListener('touchmove', onMove); document.removeEventListener('touchend', onEnd); 
+
+                    const onEnd = () => {
+                        document.removeEventListener('mousemove', onMove);
+                        document.removeEventListener('mouseup', onEnd);
+                        document.removeEventListener('touchmove', onMove);
+                        document.removeEventListener('touchend', onEnd);
+                        if (onUpdateLayout) onUpdateLayout({ w: newSize.w, h: newSize.h });
                     };
-                    document.addEventListener('mousemove', onMove); document.addEventListener('mouseup', onEnd);
-                    document.addEventListener('touchmove', onMove); document.addEventListener('touchend', onEnd);
+
+                    document.addEventListener('mousemove', onMove);
+                    document.addEventListener('mouseup', onEnd);
+                    document.addEventListener('touchmove', onMove, { passive: false });
+                    document.addEventListener('touchend', onEnd);
                 };
 
                 return (
@@ -516,35 +715,29 @@
                 );
             };
 
-            // 0. Klock-widget
-            const ClockWidget = ({ onClose }) => {
+            // Innehållskomponenter
+            const ClockWidgetContent = () => {
                 const [time, setTime] = useState(new Date());
-
                 useEffect(() => {
                     const timer = setInterval(() => setTime(new Date()), 1000);
                     return () => clearInterval(timer);
                 }, []);
-
                 return (
-                    <WidgetWrapper title="🕒 Klocka" onClose={onClose} initialSize={{w: 280, h: 180}}>
-                        <div className="flex flex-col items-center justify-center h-full">
-                            <div className="text-[72px] leading-none font-sans font-extrabold tabular-nums tracking-wide text-gray-800 drop-shadow-sm">
-                                {time.toLocaleTimeString('sv-SE', { hour: '2-digit', minute: '2-digit' })}
-                            </div>
-                            <div className="text-lg text-gray-500 font-bold mt-2 uppercase tracking-widest">
-                                {time.toLocaleDateString('sv-SE', { weekday: 'long', day: 'numeric', month: 'long' })}
-                            </div>
+                    <div className="flex flex-col items-center justify-center h-full">
+                        <div className="text-[72px] leading-none font-sans font-extrabold tabular-nums tracking-wide text-gray-800 drop-shadow-sm">
+                            {time.toLocaleTimeString('sv-SE', { hour: '2-digit', minute: '2-digit' })}
                         </div>
-                    </WidgetWrapper>
+                        <div className="text-lg text-gray-500 font-bold mt-2 uppercase tracking-widest">
+                            {time.toLocaleDateString('sv-SE', { weekday: 'long', day: 'numeric', month: 'long' })}
+                        </div>
+                    </div>
                 );
             };
 
-            // 1. Agenda (Synkad med mallen)
-            const AgendaWidget = ({ items, setItems, onClose }) => {
+            const AgendaWidgetContent = ({ items, setItems, presMode, setPresMode }) => {
                 const iconList = ['📋', '📖', '✍️', '🗣️', '👥', '💻', '📐', '🎨', '🧪', '🎧', '🔔', '⭐', '🏃', '🥪', '❓'];
                 const [newItem, setNewItem] = useState('');
                 const [icon, setIcon] = useState('📋');
-                const [presMode, setPresMode] = useState(false);
 
                 const cycleIcon = (index) => {
                     if (presMode) return;
@@ -556,59 +749,45 @@
                 };
 
                 return (
-                    <WidgetWrapper title="📋 Agenda" onClose={onClose}>
+                    <div className="flex flex-col h-full relative">
                         <div className="flex justify-end mb-2">
                             <button onClick={() => setPresMode(!presMode)} className="text-xs bg-gray-100 px-2.5 py-1 rounded-md font-bold hover:bg-gray-200">
                                 👁️ {presMode ? 'Redigera' : 'Presentation'}
                             </button>
                         </div>
-                        <div className="flex flex-col h-full relative">
-                            <div className="flex-1 overflow-y-auto space-y-2 pb-16 custom-scrollbar">
-                                {items.map((item, i) => (
-                                    <div key={i} className="flex items-center gap-3 bg-blue-50/80 p-2.5 rounded-xl text-lg border border-blue-100">
-                                        <button onClick={() => cycleIcon(i)} title="Klicka för att byta symbol" className="text-2xl hover:scale-110 transition-transform">
-                                            {item.icon}
-                                        </button>
-                                        <span className="flex-1 font-semibold text-gray-800">{item.text}</span>
-                                        {!presMode && <button onClick={() => setItems(items.filter((_, idx) => idx !== i))} className="text-red-400 hover:text-red-600">🗑️</button>}
-                                    </div>
-                                ))}
-                            </div>
-                            {!presMode && (
-                                <div className="absolute bottom-0 left-0 right-0 flex gap-2 bg-white pt-2 border-t mt-2">
-                                    <select value={icon} onChange={e => setIcon(e.target.value)} className="bg-gray-100 p-2 rounded-lg border text-xl">
-                                        {iconList.map(ic => <option key={ic} value={ic}>{ic}</option>)}
-                                    </select>
-                                    <input value={newItem} onChange={e => setNewItem(e.target.value)} onKeyDown={e => e.key === 'Enter' && (newItem.trim() && setItems([...items, { icon, text: newItem.trim() }]), setNewItem(''))} className="flex-1 p-2 border rounded-lg" placeholder="Ny aktivitet..." />
+                        <div className="flex-1 overflow-y-auto space-y-2 pb-16 custom-scrollbar">
+                            {items.map((item, i) => (
+                                <div key={i} className="flex items-center gap-3 bg-blue-50/80 p-2.5 rounded-xl text-lg border border-blue-100">
+                                    <button onClick={() => cycleIcon(i)} title="Klicka för att byta symbol" className="text-2xl hover:scale-110 transition-transform">
+                                        {item.icon}
+                                    </button>
+                                    <span className="flex-1 font-semibold text-gray-800">{item.text}</span>
+                                    {!presMode && <button onClick={() => setItems(items.filter((_, idx) => idx !== i))} className="text-red-400 hover:text-red-600">🗑️</button>}
                                 </div>
-                            )}
+                            ))}
                         </div>
-                    </WidgetWrapper>
+                        {!presMode && (
+                            <div className="absolute bottom-0 left-0 right-0 flex gap-2 bg-white pt-2 border-t mt-2">
+                                <select value={icon} onChange={e => setIcon(e.target.value)} className="bg-gray-100 p-2 rounded-lg border text-xl">
+                                    {iconList.map(ic => <option key={ic} value={ic}>{ic}</option>)}
+                                </select>
+                                <input value={newItem} onChange={e => setNewItem(e.target.value)} onKeyDown={e => e.key === 'Enter' && (newItem.trim() && setItems([...items, { icon, text: newItem.trim() }]), setNewItem(''))} className="flex-1 p-2 border rounded-lg" placeholder="Ny aktivitet..." />
+                            </div>
+                        )}
+                    </div>
                 );
             };
 
-            // 2. Anteckningar (Synkad med mallen)
-            const NotesWidget = ({ text, setText, onClose }) => (
-                <WidgetWrapper title="📝 Anteckningar" onClose={onClose} initialSize={{w: 380, h: 280}}>
-                    <textarea 
-                        value={text} 
-                        onChange={e => setText(e.target.value)} 
-                        className="w-full h-full resize-none outline-none text-xl p-2" 
-                        placeholder="Skriv lektionsanteckningar här..."></textarea>
-                </WidgetWrapper>
+            const NotesWidgetContent = ({ text, setText }) => (
+                <textarea 
+                    value={text} 
+                    onChange={e => setText(e.target.value)} 
+                    className="w-full h-full resize-none outline-none text-xl p-2" 
+                    placeholder="Skriv lektionsanteckningar här..."></textarea>
             );
 
-            // Visual Die-Component
             const Die = ({ val, rolling }) => {
-                const dots = {
-                    1: [4],
-                    2: [2, 6],
-                    3: [2, 4, 6],
-                    4: [0, 2, 6, 8],
-                    5: [0, 2, 4, 6, 8],
-                    6: [0, 2, 3, 5, 6, 8]
-                }[val] || [4];
-                
+                const dots = { 1: [4], 2: [2, 6], 3: [2, 4, 6], 4: [0, 2, 6, 8], 5: [0, 2, 4, 6, 8], 6: [0, 2, 3, 5, 6, 8] }[val] || [4];
                 return (
                     <div className={`w-20 h-20 bg-white rounded-2xl shadow-md border border-gray-200 grid grid-cols-3 grid-rows-3 p-3 gap-1 transition-transform ${rolling ? 'animate-bounce' : ''}`}>
                         {[...Array(9)].map((_, i) => (
@@ -618,8 +797,7 @@
                 );
             };
 
-            // 3. Grafiska tärningar
-            const DiceWidget = ({ onClose }) => {
+            const DiceWidgetContent = () => {
                 const [count, setCount] = useState(2);
                 const [vals, setVals] = useState([3, 5]);
                 const [rolling, setRolling] = useState(false);
@@ -629,14 +807,9 @@
                     setRolling(true);
                     let times = 0;
                     const interval = setInterval(() => {
-                        setVals(count === 1 
-                            ? [Math.floor(Math.random() * 6) + 1] 
-                            : [Math.floor(Math.random() * 6) + 1, Math.floor(Math.random() * 6) + 1]);
+                        setVals(count === 1 ? [Math.floor(Math.random() * 6) + 1] : [Math.floor(Math.random() * 6) + 1, Math.floor(Math.random() * 6) + 1]);
                         times++;
-                        if (times > 10) {
-                            clearInterval(interval);
-                            setRolling(false);
-                        }
+                        if (times > 10) { clearInterval(interval); setRolling(false); }
                     }, 50);
                 };
 
@@ -650,68 +823,60 @@
                 const sum = vals.reduce((a, b) => a + b, 0);
 
                 return (
-                    <WidgetWrapper title="🎲 Tärning" onClose={onClose} initialSize={{w: 280, h: 320}}>
-                        <div className="flex flex-col items-center justify-between h-full py-2">
-                            <div className="flex bg-gray-100 p-1 rounded-xl">
-                                <button onClick={() => switchCount(1)} className={`px-3 py-1 rounded-lg text-xs font-bold transition-colors ${count === 1 ? 'bg-white text-blue-600 shadow' : 'text-gray-500'}`}>1 tärning</button>
-                                <button onClick={() => switchCount(2)} className={`px-3 py-1 rounded-lg text-xs font-bold transition-colors ${count === 2 ? 'bg-white text-blue-600 shadow' : 'text-gray-500'}`}>2 tärningar</button>
-                            </div>
-                            <div className="flex items-center justify-center gap-4 py-4 flex-1">
-                                {vals.map((v, i) => <Die key={i} val={v} rolling={rolling} />)}
-                            </div>
-                            {count === 2 && !rolling && (
-                                <div className="text-sm font-bold text-gray-600 bg-gray-100 px-4 py-1.5 rounded-full mb-2">
-                                    Summa: <span className="text-blue-600 text-lg">{sum}</span>
-                                </div>
-                            )}
-                            {rolling && count === 2 && <div className="h-8 mb-2"></div>}
-                            
-                            <button onClick={roll} disabled={rolling} className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 rounded-xl shadow transition-transform active:scale-95 text-base disabled:opacity-50">
-                                Kasta tärning
-                            </button>
+                    <div className="flex flex-col items-center justify-between h-full py-2">
+                        <div className="flex bg-gray-100 p-1 rounded-xl">
+                            <button onClick={() => switchCount(1)} className={`px-3 py-1 rounded-lg text-xs font-bold transition-colors ${count === 1 ? 'bg-white text-blue-600 shadow' : 'text-gray-500'}`}>1 tärning</button>
+                            <button onClick={() => switchCount(2)} className={`px-3 py-1 rounded-lg text-xs font-bold transition-colors ${count === 2 ? 'bg-white text-blue-600 shadow' : 'text-gray-500'}`}>2 tärningar</button>
                         </div>
-                    </WidgetWrapper>
+                        <div className="flex items-center justify-center gap-4 py-4 flex-1">
+                            {vals.map((v, i) => <Die key={i} val={v} rolling={rolling} />)}
+                        </div>
+                        {count === 2 && !rolling && (
+                            <div className="text-sm font-bold text-gray-600 bg-gray-100 px-4 py-1.5 rounded-full mb-2">
+                                Summa: <span className="text-blue-600 text-lg">{sum}</span>
+                            </div>
+                        )}
+                        {rolling && count === 2 && <div className="h-8 mb-2"></div>}
+                        <button onClick={roll} disabled={rolling} className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 rounded-xl shadow transition-transform active:scale-95 text-base disabled:opacity-50">
+                            Kasta tärning
+                        </button>
+                    </div>
                 );
             };
 
-            // 4. Arbetsform (Synkad med mallen)
-            const WorkFormatWidget = ({ activeIdx, setActiveIdx, onClose }) => {
+            const WorkFormatWidgetContent = ({ activeIdx, setActiveIdx }) => {
                 const formats = [
                     { icon: '🤫', title: 'Tyst arbete', sub: 'Fokusera & arbeta självständigt', color: 'from-blue-600 to-indigo-700' },
                     { icon: '💬', title: 'Viskton', sub: 'Prata lågmält med bänkgrannen', color: 'from-emerald-500 to-teal-700' },
                     { icon: '👥', title: 'Fråga kompisen', sub: 'Hjälp varandra två och två', color: 'from-amber-500 to-orange-600' },
                     { icon: '🤝', title: 'Samarbete', sub: 'Grupparbete & gemensam diskussion', color: 'from-purple-600 to-pink-600' }
                 ];
-
                 const current = formats[activeIdx] || formats[0];
 
                 return (
-                    <WidgetWrapper title="🤫 Arbetsform" onClose={onClose} initialSize={{w: 330, h: 360}}>
-                        <div className="flex flex-col h-full justify-between">
-                            <div className={`rounded-2xl p-6 text-white text-center shadow-lg bg-gradient-to-br ${current.color} transition-all duration-300 flex flex-col items-center justify-center flex-1 mb-4`}>
-                                <div className="text-6xl mb-2 select-none filter drop-shadow">{current.icon}</div>
-                                <h2 className="text-2xl font-extrabold tracking-wide">{current.title}</h2>
-                                <p className="text-xs text-white/90 font-medium mt-1">{current.sub}</p>
-                            </div>
-                            <div className="grid grid-cols-2 gap-2">
-                                {formats.map((f, i) => (
-                                    <button 
-                                        key={i} 
-                                        onClick={() => setActiveIdx(i)}
-                                        className={`flex items-center gap-2 p-2 rounded-xl text-left border text-xs font-bold transition-all ${activeIdx === i ? 'border-gray-800 bg-gray-100 shadow-sm' : 'border-gray-200 bg-white hover:bg-gray-50 text-gray-700'}`}>
-                                        <span className="text-lg">{f.icon}</span>
-                                        <span className="truncate">{f.title}</span>
-                                    </button>
-                                ))}
-                            </div>
+                    <div className="flex flex-col h-full justify-between">
+                        <div className={`rounded-2xl p-6 text-white text-center shadow-lg bg-gradient-to-br ${current.color} transition-all duration-300 flex flex-col items-center justify-center flex-1 mb-4`}>
+                            <div className="text-6xl mb-2 select-none filter drop-shadow">{current.icon}</div>
+                            <h2 className="text-2xl font-extrabold tracking-wide">{current.title}</h2>
+                            <p className="text-xs text-white/90 font-medium mt-1">{current.sub}</p>
                         </div>
-                    </WidgetWrapper>
+                        <div className="grid grid-cols-2 gap-2">
+                            {formats.map((f, i) => (
+                                <button 
+                                    key={i} 
+                                    onClick={() => setActiveIdx(i)}
+                                    className={`flex items-center gap-2 p-2 rounded-xl text-left border text-xs font-bold transition-all ${activeIdx === i ? 'border-gray-800 bg-gray-100 shadow-sm' : 'border-gray-200 bg-white hover:bg-gray-50 text-gray-700'}`}>
+                                    <span className="text-lg">{f.icon}</span>
+                                    <span className="truncate">{f.title}</span>
+                                </button>
+                            ))}
+                        </div>
+                    </div>
                 );
             };
 
-            // 5. Slumpa elev (Synkad med mallen)
-            const RandomizerWidget = ({ namesText, setNamesText, onClose }) => {
-                const [chosen, setChosen] = useState(null);
+            // Slumpa elev med bevarat vald-elev-resultat
+            const RandomizerWidgetContent = ({ namesText, setNamesText, chosen, setChosen }) => {
                 const [remaining, setRemaining] = useState([]);
                 const [isSettings, setIsSettings] = useState(false);
 
@@ -726,13 +891,10 @@
                     setRemaining(pool.filter((_, idx) => idx !== pickedIndex));
                 };
 
-                const resetPool = () => {
-                    setRemaining(getList());
-                    setChosen(null);
-                };
+                const resetPool = () => { setRemaining(getList()); setChosen(null); };
 
                 return (
-                    <WidgetWrapper title="🎯 Slumpa elev" onClose={onClose} initialSize={{w: 320, h: 320}}>
+                    <div className="flex flex-col h-full">
                         <div className="flex justify-end mb-2">
                             <button onClick={() => setIsSettings(!isSettings)} className="text-xs bg-gray-100 px-2 py-1 rounded font-bold">
                                 {isSettings ? 'Klar' : '⚙️ Ändra namn'}
@@ -745,48 +907,38 @@
                                 <button onClick={() => { setIsSettings(false); resetPool(); }} className="bg-blue-600 text-white font-bold py-2 rounded">Spara klasslista</button>
                             </div>
                         ) : (
-                            <div className="flex flex-col items-center justify-center h-full gap-4">
+                            <div className="flex flex-col items-center justify-center flex-1 gap-4">
                                 <div className="text-3xl font-extrabold text-center text-blue-700 bg-blue-50 w-full py-6 rounded-2xl shadow-inner min-h-[90px] flex items-center justify-center">
                                     {chosen || 'Klicka på slumpa'}
                                 </div>
-                                <div className="text-xs text-gray-500">
-                                    {remaining.length} elever kvar i urvalet
-                                </div>
+                                <div className="text-xs text-gray-500">{remaining.length} elever kvar i urvalet</div>
                                 <div className="flex gap-2 w-full">
-                                    <button onClick={pick} className="flex-1 bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 rounded-xl shadow text-lg">
-                                        Slumpa!
-                                    </button>
-                                    <button onClick={resetPool} title="Återställ lista" className="px-3 bg-gray-200 hover:bg-gray-300 rounded-xl font-bold">
-                                        🔄
-                                    </button>
+                                    <button onClick={pick} className="flex-1 bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 rounded-xl shadow text-lg">Slumpa!</button>
+                                    <button onClick={resetPool} title="Återställ lista" className="px-3 bg-gray-200 hover:bg-gray-300 rounded-xl font-bold">🔄</button>
                                 </div>
                             </div>
                         )}
-                    </WidgetWrapper>
+                    </div>
                 );
             };
 
-            // 6. Gruppskapare (Synkad med mallen)
-            const GroupMakerWidget = ({ names, setNames, onClose }) => {
-                const [numGroups, setNumGroups] = useState(2);
-                const [groups, setGroups] = useState([]);
-
+            // Gruppskapare med bevarade grupper
+            const GroupMakerWidgetContent = ({ names, setNames, groups, setGroups, numGroups, setNumGroups }) => {
                 const generate = () => {
-                    let list = names.split(',').map(n => n.trim()).filter(n => n);
-                    list = list.sort(() => Math.random() - 0.5);
+                    let list = names.split(',').map(n => n.trim()).filter(n => n).sort(() => Math.random() - 0.5);
                     let result = Array.from({length: numGroups}, () => []);
                     list.forEach((name, i) => result[i % numGroups].push(name));
                     setGroups(result);
                 };
 
                 return (
-                    <WidgetWrapper title="👥 Gruppskapare" onClose={onClose} initialSize={{w: 400, h: 440}}>
+                    <div className="flex flex-col h-full">
                         {groups.length === 0 ? (
                             <div className="flex flex-col h-full gap-2">
                                 <label className="font-bold">Klasslista (kommatecken)</label>
                                 <textarea className="w-full h-24 border p-2 rounded" value={names} onChange={e => setNames(e.target.value)}></textarea>
                                 <label className="font-bold mt-2">Antal grupper: <span className="text-blue-600">{numGroups}</span></label>
-                                <input type="range" min="2" max="10" value={numGroups} onChange={e => setNumGroups(e.target.value)} className="w-full" />
+                                <input type="range" min="2" max="10" value={numGroups} onChange={e => setNumGroups(Number(e.target.value))} className="w-full" />
                                 <button onClick={generate} className="mt-4 bg-purple-600 hover:bg-purple-700 text-white font-bold py-3 rounded-xl shadow">Slumpa Grupper</button>
                             </div>
                         ) : (
@@ -802,12 +954,11 @@
                                 </div>
                             </div>
                         )}
-                    </WidgetWrapper>
+                    </div>
                 );
             };
 
-            // 7. Visuell Time-Timer (Synkad med mallen)
-            const TimerWidget = ({ initialSeconds, setInitialSeconds, onClose }) => {
+            const TimerWidgetContent = ({ initialSeconds, setInitialSeconds }) => {
                 const [time, setTime] = useState(initialSeconds || 600);
                 const [isRunning, setIsRunning] = useState(false);
 
@@ -839,39 +990,32 @@
                 const pct = maxSec > 0 ? (time / maxSec) * 100 : 0;
 
                 return (
-                    <WidgetWrapper title="⏳ Time Timer" onClose={onClose} initialSize={{w: 320, h: 360}}>
-                        <div className="flex flex-col items-center justify-between h-full py-2">
-                            <div 
-                                className="relative w-44 h-44 rounded-full shadow-inner flex items-center justify-center transition-all duration-1000 ease-linear" 
-                                style={{ background: `conic-gradient(#ef4444 ${pct}%, #e5e7eb ${pct}%)` }}
-                            >
-                                <div className={`bg-white/85 px-4 py-2 rounded-xl backdrop-blur shadow-sm text-4xl font-sans font-extrabold tabular-nums tracking-wide ${time === 0 ? 'text-red-500 animate-pulse' : 'text-gray-800'}`}>
-                                    {m}:{s}
-                                </div>
-                            </div>
-
-                            <div className="flex gap-2 w-full mt-4">
-                                <button onClick={() => changeTime(-60)} className="flex-1 bg-gray-100 hover:bg-gray-200 py-2 rounded-lg font-bold text-sm text-gray-700">- 1 min</button>
-                                <button onClick={() => changeTime(60)} className="flex-1 bg-gray-100 hover:bg-gray-200 py-2 rounded-lg font-bold text-sm text-gray-700">+ 1 min</button>
-                            </div>
-                            
-                            <div className="flex gap-2 w-full mt-2">
-                                <button onClick={() => setIsRunning(!isRunning)} className={`flex-2 w-2/3 text-white font-bold py-3 rounded-xl shadow ${isRunning ? 'bg-orange-500' : 'bg-green-500'}`}>
-                                    {isRunning ? 'Paus' : 'Starta'}
-                                </button>
-                                <button onClick={() => { setIsRunning(false); setTime(initialSeconds || 600); }} className="flex-1 bg-red-500 hover:bg-red-600 text-white font-bold py-3 rounded-xl shadow">
-                                    Återställ
-                                </button>
+                    <div className="flex flex-col items-center justify-between h-full py-2">
+                        <div 
+                            className="relative w-44 h-44 rounded-full shadow-inner flex items-center justify-center transition-all duration-1000 ease-linear" 
+                            style={{ background: `conic-gradient(#ef4444 ${pct}%, #e5e7eb ${pct}%)` }}
+                        >
+                            <div className={`bg-white/85 px-4 py-2 rounded-xl backdrop-blur shadow-sm text-4xl font-sans font-extrabold tabular-nums tracking-wide ${time === 0 ? 'text-red-500 animate-pulse' : 'text-gray-800'}`}>
+                                {m}:{s}
                             </div>
                         </div>
-                    </WidgetWrapper>
+                        <div className="flex gap-2 w-full mt-4">
+                            <button onClick={() => changeTime(-60)} className="flex-1 bg-gray-100 hover:bg-gray-200 py-2 rounded-lg font-bold text-sm text-gray-700">- 1 min</button>
+                            <button onClick={() => changeTime(60)} className="flex-1 bg-gray-100 hover:bg-gray-200 py-2 rounded-lg font-bold text-sm text-gray-700">+ 1 min</button>
+                        </div>
+                        <div className="flex gap-2 w-full mt-2">
+                            <button onClick={() => setIsRunning(!isRunning)} className={`flex-2 w-2/3 text-white font-bold py-3 rounded-xl shadow ${isRunning ? 'bg-orange-500' : 'bg-green-500'}`}>
+                                {isRunning ? 'Paus' : 'Starta'}
+                            </button>
+                            <button onClick={() => { setIsRunning(false); setTime(initialSeconds || 600); }} className="flex-1 bg-red-500 hover:bg-red-600 text-white font-bold py-3 rounded-xl shadow">
+                                Återställ
+                            </button>
+                        </div>
+                    </div>
                 );
             };
 
-            // 8. Incheckning (QR)
-            const CheckInWidget = ({ onClose, boardId, baseUrl }) => {
-                const [q, setQ] = useState("Hur mår du idag?");
-                const [active, setActive] = useState(false);
+            const CheckInWidgetContent = ({ boardId, baseUrl, question, setQuestion, active, setActive }) => {
                 const [counts, setCounts] = useState({'🤩':0, '🙂':0, '😐':0, '😔':0});
 
                 useEffect(() => {
@@ -888,19 +1032,22 @@
                     return () => unsubscribe();
                 }, [active]);
 
-                const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(baseUrl + '?student=checkin&boardId=' + boardId + '&q=' + q)}`;
+                const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(baseUrl + '?student=checkin&boardId=' + boardId + '&q=' + question)}`;
 
                 return (
-                    <WidgetWrapper title="😊 Incheckning" onClose={onClose} initialSize={{w: 380, h: 440}}>
+                    <div className="h-full">
                         {!active ? (
                             <div className="flex flex-col h-full gap-4">
                                 <label className="font-bold text-gray-700">Fråga till eleverna:</label>
-                                <input value={q} onChange={e => setQ(e.target.value)} className="p-3 border rounded text-lg" />
+                                <input value={question} onChange={e => setQuestion(e.target.value)} className="p-3 border rounded text-lg" />
                                 <button onClick={() => setActive(true)} className="bg-green-600 hover:bg-green-700 text-white py-3 rounded-xl font-bold text-lg mt-auto shadow">Starta Incheckning</button>
                             </div>
                         ) : (
                             <div className="flex flex-col items-center h-full gap-3">
-                                <h3 className="font-bold text-base text-center bg-gray-50 w-full p-2 rounded">{q}</h3>
+                                <div className="flex justify-between items-center w-full">
+                                    <h3 className="font-bold text-base text-gray-800 truncate pr-2">{question}</h3>
+                                    <button onClick={() => setActive(false)} className="text-xs text-blue-600 underline">Ändra fråga</button>
+                                </div>
                                 <div className="flex gap-4 items-end h-28 border-b w-full px-4 pt-2">
                                     {Object.keys(counts).map(emoji => {
                                         let max = Math.max(...Object.values(counts), 1);
@@ -911,7 +1058,7 @@
                                                 <div className="text-2xl">{emoji}</div>
                                                 <div className="text-xs font-bold">{counts[emoji]}</div>
                                             </div>
-                                        )
+                                        );
                                     })}
                                 </div>
                                 <div className="p-2 border-2 border-dashed rounded-xl flex flex-col items-center bg-gray-50 mt-1">
@@ -920,14 +1067,11 @@
                                 </div>
                             </div>
                         )}
-                    </WidgetWrapper>
+                    </div>
                 );
             };
 
-            // 9. Exit Ticket (QR)
-            const ExitTicketWidget = ({ onClose, boardId, baseUrl }) => {
-                const [q, setQ] = useState("Vad tar du med dig från lektionen?");
-                const [active, setActive] = useState(false);
+            const ExitTicketWidgetContent = ({ boardId, baseUrl, question, setQuestion, active, setActive }) => {
                 const [tickets, setTickets] = useState([]);
 
                 useEffect(() => {
@@ -944,21 +1088,24 @@
                     return () => unsubscribe();
                 }, [active]);
 
-                const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(baseUrl + '?student=exitticket&boardId=' + boardId + '&q=' + q)}`;
+                const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(baseUrl + '?student=exitticket&boardId=' + boardId + '&q=' + question)}`;
 
                 return (
-                    <WidgetWrapper title="📌 Exit Ticket" onClose={onClose} initialSize={{w: 500, h: 480}}>
+                    <div className="h-full">
                         {!active ? (
                             <div className="flex flex-col h-full gap-4">
                                 <label className="font-bold text-gray-700">Fråga (fritext):</label>
-                                <textarea value={q} onChange={e => setQ(e.target.value)} className="p-3 border rounded text-lg h-24 resize-none"></textarea>
+                                <textarea value={question} onChange={e => setQuestion(e.target.value)} className="p-3 border rounded text-lg h-24 resize-none"></textarea>
                                 <button onClick={() => setActive(true)} className="bg-yellow-500 hover:bg-yellow-600 text-white py-3 rounded-xl font-bold text-lg mt-auto shadow">Starta Exit Ticket</button>
                             </div>
                         ) : (
                             <div className="flex flex-col h-full">
                                 <div className="flex justify-between items-center bg-gray-50 p-2.5 rounded-lg mb-3 border shadow-sm">
-                                    <div className="font-bold text-sm text-gray-700 pr-3">{q}</div>
-                                    <img src={qrUrl} className="w-14 h-14 border bg-white p-1" />
+                                    <div className="font-bold text-sm text-gray-700 pr-3">{question}</div>
+                                    <div className="flex items-center gap-2">
+                                        <button onClick={() => setActive(false)} className="text-xs text-blue-600 underline">Ändra</button>
+                                        <img src={qrUrl} className="w-14 h-14 border bg-white p-1" />
+                                    </div>
                                 </div>
                                 <div className="flex-1 overflow-y-auto grid grid-cols-2 gap-3 p-3 bg-gray-200 rounded-lg inner-shadow custom-scrollbar">
                                     {tickets.length === 0 && <div className="col-span-2 text-center text-gray-500 mt-10 font-medium">Väntar på svar...</div>}
@@ -971,7 +1118,7 @@
                                 </div>
                             </div>
                         )}
-                    </WidgetWrapper>
+                    </div>
                 );
             };
 
