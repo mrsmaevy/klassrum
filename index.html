@@ -19,18 +19,17 @@
         body { margin: 0; overflow: hidden; background-color: #f0f4f8; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
         .bg-image { position: absolute; top: 0; left: 0; width: 100vw; height: 100vh; object-fit: cover; z-index: -1; }
         .widget { position: absolute; background: white; border-radius: 12px; box-shadow: 0 10px 25px rgba(0,0,0,0.15); display: flex; flex-direction: column; overflow: hidden; }
-        .widget-header { background: #f8fafc; padding: 10px; cursor: grab; font-weight: bold; border-bottom: 1px solid #e2e8f0; display: flex; justify-content: space-between; align-items: center; }
+        .widget-header { background: #f8fafc; padding: 10px; cursor: grab; font-weight: bold; border-bottom: 1px solid #e2e8f0; display: flex; justify-content: space-between; align-items: center; user-select: none; }
         .widget-header:active { cursor: grabbing; }
-        .resize-handle { position: absolute; bottom: 0; right: 0; width: 20px; height: 20px; cursor: nwse-resize; display: flex; align-items: flex-end; justify-content: flex-end; padding: 4px; color: #94a3b8; }
-        .dock { position: absolute; bottom: 20px; left: 50%; transform: translateX(-50%); background: #1e293b; padding: 10px 20px; border-radius: 16px; display: flex; gap: 15px; box-shadow: 0 10px 25px rgba(0,0,0,0.3); z-index: 100; }
-        .dock-btn { background: none; border: none; color: white; display: flex; flex-direction: column; align-items: center; gap: 5px; cursor: pointer; transition: transform 0.2s; }
-        .dock-btn:hover { transform: translateY(-5px); color: #60a5fa; }
-        .dock-icon { font-size: 24px; }
+        .resize-handle { position: absolute; bottom: 0; right: 0; width: 20px; height: 20px; cursor: nwse-resize; display: flex; align-items: flex-end; justify-content: flex-end; padding: 4px; color: #94a3b8; user-select: none; }
+        .dock { position: absolute; bottom: 20px; left: 50%; transform: translateX(-50%); background: #1e293b; padding: 10px 20px; border-radius: 16px; display: flex; gap: 15px; box-shadow: 0 10px 25px rgba(0,0,0,0.3); z-index: 100; max-width: 95vw; overflow-x: auto; }
+        .dock-btn { background: none; border: none; color: white; display: flex; flex-direction: column; align-items: center; gap: 5px; cursor: pointer; transition: transform 0.2s; white-space: nowrap; }
+        .dock-btn:hover { transform: translateY(-4px); color: #60a5fa; }
+        .dock-icon { font-size: 22px; }
         .dock-label { font-size: 10px; text-transform: uppercase; letter-spacing: 0.5px; }
         .post-it { background: #fef08a; padding: 15px; box-shadow: 2px 4px 10px rgba(0,0,0,0.1); font-family: 'Comic Sans MS', cursive, sans-serif; position: relative; }
-        .sticker { position: absolute; font-size: 64px; user-select: none; transition: transform 0.1s; }
+        .sticker { position: absolute; font-size: 64px; user-select: none; transition: transform 0.1s; display: inline-block; }
         
-        /* Egen scrollbar för sticker-menyn */
         .custom-scrollbar::-webkit-scrollbar { width: 8px; }
         .custom-scrollbar::-webkit-scrollbar-track { background: #f1f5f9; border-radius: 4px; }
         .custom-scrollbar::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
@@ -40,13 +39,12 @@
 <body>
     <div id="root"></div>
 
-    <!-- Firebase SDK (Standard ES Modules) -->
+    <!-- Firebase SDK -->
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-app.js";
         import { getAuth, signInWithPopup, GoogleAuthProvider, signInAnonymously, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-auth.js";
         import { getFirestore, collection, addDoc, onSnapshot, query, where, deleteDoc, doc } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore.js";
 
-        // Din konfiguration
         const firebaseConfig = {
             apiKey: "AIzaSyCjnV83LrQ-I-5WMf-6EJ9xqV5xnufO6LQ",
             authDomain: "whiteboard-klassrum.firebaseapp.com",
@@ -60,15 +58,13 @@
         const auth = getAuth(app);
         const db = getFirestore(app);
 
-        // Exponera för React
         window.firebaseApp = { auth, db, signInWithPopup, GoogleAuthProvider, signInAnonymously, onAuthStateChanged, signOut, collection, addDoc, onSnapshot, query, where, deleteDoc, doc };
     </script>
 
-    <!-- Huvudkoden för React -->
     <script type="text/babel">
         const { useState, useEffect, useRef } = React;
 
-        // --- Elevvyer ---
+        // --- Elevvyer för mobiler/Chromebooks ---
         const urlParams = new URLSearchParams(window.location.search);
         const isStudent = urlParams.get('student');
         
@@ -95,8 +91,7 @@
                     </div>
                 );
             };
-            const root = ReactDOM.createRoot(document.getElementById('root'));
-            root.render(<StudentCheckIn />);
+            ReactDOM.createRoot(document.getElementById('root')).render(<StudentCheckIn />);
         } 
         else if (isStudent === 'exitticket') {
             const StudentExitTicket = () => {
@@ -121,58 +116,53 @@
                     </div>
                 );
             };
-            const root = ReactDOM.createRoot(document.getElementById('root'));
-            root.render(<StudentExitTicket />);
+            ReactDOM.createRoot(document.getElementById('root')).render(<StudentExitTicket />);
         }
         else {
-            // --- HUVUDPROGRAMMET (LÄRARVY) ---
-            
+            // --- LÄRARVY ---
             const useDraggable = (initialPos) => {
                 const [pos, setPos] = useState(initialPos);
                 const handleDrag = (e) => {
-                    if (e.target.tagName === 'BUTTON') return;
+                    if (e.target.tagName === 'BUTTON' || e.target.closest('button')) return;
                     if (e.type === 'touchstart') {
                         const touch = e.touches[0];
                         let startX = touch.clientX - pos.x; let startY = touch.clientY - pos.y;
-                        const onTouchMove = (moveEvent) => setPos({ x: moveEvent.touches[0].clientX - startX, y: moveEvent.touches[0].clientY - startY });
+                        const onTouchMove = (mE) => setPos({ x: mE.touches[0].clientX - startX, y: mE.touches[0].clientY - startY });
                         const onTouchEnd = () => { document.removeEventListener('touchmove', onTouchMove); document.removeEventListener('touchend', onTouchEnd); };
-                        document.addEventListener('touchmove', onTouchMove); document.addEventListener('touchend', onTouchEnd);
+                        document.addEventListener('touchmove', onTouchMove);
+                        document.addEventListener('touchend', onTouchEnd);
                     } else {
                         let startX = e.clientX - pos.x; let startY = e.clientY - pos.y;
-                        const onMouseMove = (moveEvent) => setPos({ x: moveEvent.clientX - startX, y: moveEvent.clientY - startY });
+                        const onMouseMove = (mE) => setPos({ x: mE.clientX - startX, y: mE.clientY - startY });
                         const onMouseUp = () => { document.removeEventListener('mousemove', onMouseMove); document.removeEventListener('mouseup', onMouseUp); };
-                        document.addEventListener('mousemove', onMouseMove); document.addEventListener('mouseup', onMouseUp);
+                        document.addEventListener('mousemove', onMouseMove);
+                        document.addEventListener('mouseup', onMouseUp);
                     }
                 };
                 return [pos, handleDrag, setPos];
             };
 
             const App = () => {
-                // State för tavlan
-                const [bg, setBg] = useState('https://images.unsplash.com/photo-1507525428034-b723cf961d3e?w=1920&q=80');
-                const [widgets, setWidgets] = useState({ agenda: false, notes: false, dice: false, workformat: false, group: false, checkin: false, exitticket: false, timer: false });
+                const [bg, setBg] = useState('https://images.unsplash.com/photo-1507525428034-b723cf961d3e?auto=format&fit=crop&w=1920&q=80');
+                const [widgets, setWidgets] = useState({ agenda: false, notes: false, dice: false, workformat: false, randomizer: false, group: false, timer: false, checkin: false, exitticket: false });
                 const [stickers, setStickers] = useState([]);
                 
-                // Menyer
                 const [showStickerMenu, setShowStickerMenu] = useState(false);
                 const [showBgMenu, setShowBgMenu] = useState(false);
                 const [showCloudMenu, setShowCloudMenu] = useState(false);
                 
-                // Användare & Mallar
                 const [user, setUser] = useState(null);
                 const [templates, setTemplates] = useState([]);
                 
-                const boardId = "board_" + Math.random().toString(36).substr(2, 9);
+                const boardIdRef = useRef("board_" + Math.random().toString(36).substr(2, 9));
                 const baseUrl = window.location.href.split('?')[0];
 
-                const toggleWidget = (w) => setWidgets({...widgets, [w]: !widgets[w]});
+                const toggleWidget = (w) => setWidgets(prev => ({...prev, [w]: !prev[w]}));
                 
-                // --- Autentisering och databas för mallar ---
                 useEffect(() => {
                     const unsubscribe = window.firebaseApp.onAuthStateChanged(window.firebaseApp.auth, currentUser => {
                         if (currentUser && !currentUser.isAnonymous) {
                             setUser(currentUser);
-                            // Hämta lärarens sparade mallar
                             const q = window.firebaseApp.query(window.firebaseApp.collection(window.firebaseApp.db, "templates"), window.firebaseApp.where("userId", "==", currentUser.uid));
                             window.firebaseApp.onSnapshot(q, snap => {
                                 let tmp = [];
@@ -189,17 +179,14 @@
 
                 const handleLogin = () => {
                     window.firebaseApp.signInWithPopup(window.firebaseApp.auth, new window.firebaseApp.GoogleAuthProvider())
-                    .catch(err => alert("Inloggning misslyckades."));
+                    .catch(() => alert("Inloggning misslyckades."));
                 };
 
-                const handleLogout = () => {
-                    window.firebaseApp.signOut(window.firebaseApp.auth);
-                };
+                const handleLogout = () => { window.firebaseApp.signOut(window.firebaseApp.auth); };
 
                 const saveTemplate = async () => {
                     const name = prompt("Namnge denna tavla (t.ex. 'Svenska Åk 7'):");
                     if (!name) return;
-                    // Spara aktiva widgets och nuvarande bakgrund
                     const activeWidgets = Object.keys(widgets).filter(k => widgets[k]);
                     await window.firebaseApp.addDoc(window.firebaseApp.collection(window.firebaseApp.db, "templates"), {
                         userId: user.uid,
@@ -212,7 +199,7 @@
 
                 const loadTemplate = (tmpl) => {
                     setBg(tmpl.bg);
-                    let newWidgets = { agenda: false, notes: false, dice: false, workformat: false, group: false, checkin: false, exitticket: false, timer: false };
+                    let newWidgets = { agenda: false, notes: false, dice: false, workformat: false, randomizer: false, group: false, timer: false, checkin: false, exitticket: false };
                     if(tmpl.activeWidgets) {
                         tmpl.activeWidgets.forEach(w => newWidgets[w] = true);
                     }
@@ -222,14 +209,13 @@
                 };
 
                 const deleteTemplate = async (id) => {
-                    if(confirm("Vill du verkligen ta bort denna mall?")) {
+                    if(confirm("Vill du ta bort denna mall?")) {
                         await window.firebaseApp.deleteDoc(window.firebaseApp.doc(window.firebaseApp.db, "templates", id));
                     }
                 };
 
-                // --- Klistermärken ---
                 const addSticker = (emoji) => {
-                    setStickers([...stickers, { id: Date.now(), emoji, x: window.innerWidth/2 - 40, y: window.innerHeight/2 - 40 }]);
+                    setStickers(prev => [...prev, { id: Date.now(), emoji, x: window.innerWidth / 2 - 35, y: window.innerHeight / 2 - 35 }]);
                     setShowStickerMenu(false);
                 };
 
@@ -242,44 +228,38 @@
                     "Sommar & Sol": ['☀️','🏖️','🍦','🍉','🌻','😎']
                 };
 
-                // --- Bakgrunder ---
+                // 8 beprövade bakgrunder
                 const bgOptions = [
-                    "https://images.unsplash.com/photo-1507525428034-b723cf961d3e?w=1920&q=80", // Strand
-                    "https://images.unsplash.com/photo-1511884642898-4c92249e20b6?w=1920&q=80", // Skog
-                    "https://images.unsplash.com/photo-1506744626753-eda818c9c730?w=1920&q=80", // Berg
-                    "https://images.unsplash.com/photo-1454496522488-7a8e488e8606?w=1920&q=80", // Vinter
-                    "https://images.unsplash.com/photo-1528183429752-a97d0bf99b5a?w=1920&q=80", // Höst
-                    "https://images.unsplash.com/photo-1490682143684-14369e18dce8?w=1920&q=80", // Vårblommor
-                    "https://images.unsplash.com/photo-1516979187457-637abb4f9353?w=1920&q=80", // Bokhylla
-                    "https://images.unsplash.com/photo-1550684848-fac1c5b4e853?w=1920&q=80"  // Abstrakt/Lugn
+                    "https://images.unsplash.com/photo-1507525428034-b723cf961d3e?auto=format&fit=crop&w=1920&q=80", // Hav/Strand
+                    "https://images.unsplash.com/photo-1448375240586-882707db888b?auto=format&fit=crop&w=1920&q=80", // Skog
+                    "https://images.unsplash.com/photo-1464822759023-fed622ff2c3b?auto=format&fit=crop&w=1920&q=80", // Berg
+                    "https://images.unsplash.com/photo-1483921020237-2ff51e8e4b22?auto=format&fit=crop&w=1920&q=80", // Vinter/Snö
+                    "https://images.unsplash.com/photo-1507783548227-544c3b8fc065?auto=format&fit=crop&w=1920&q=80", // Höstskog
+                    "https://images.unsplash.com/photo-1490750967868-88aa4486c946?auto=format&fit=crop&w=1920&q=80", // Våräng
+                    "https://images.unsplash.com/photo-1524995997946-a1c2e315a42f?auto=format&fit=crop&w=1920&q=80", // Bokhylla/Bibliotek
+                    "https://images.unsplash.com/photo-1579546929518-9e396f3cc809?auto=format&fit=crop&w=1920&q=80"  // Mjuk pastell
                 ];
 
                 return (
                     <div>
                         <img src={bg} className="bg-image" alt="background" />
                         
-                        {/* Toppmeny */}
                         <header className="absolute top-0 w-full p-4 flex justify-between bg-white/90 backdrop-blur shadow-md z-40">
                             <h1 className="text-2xl font-bold text-gray-800 flex items-center gap-2">🏫 Klassrumsskärm</h1>
                             <div className="flex gap-3">
-                                {/* Molnknapp */}
                                 <button onClick={() => setShowCloudMenu(!showCloudMenu)} className="px-4 py-2 bg-blue-100 text-blue-800 rounded-lg font-bold shadow hover:bg-blue-200">
                                     ☁️ {user ? user.displayName.split(' ')[0] : 'Logga in'}
                                 </button>
-                                
-                                {/* Bakgrundsknapp */}
                                 <button onClick={() => setShowBgMenu(!showBgMenu)} className="px-4 py-2 bg-gray-100 text-gray-800 rounded-lg font-bold shadow hover:bg-gray-200">
                                     🌄 Bakgrund
                                 </button>
-                                
-                                {/* Rensa-knapp */}
-                                <button onClick={() => {setWidgets({}); setStickers([]);}} className="px-4 py-2 bg-red-100 text-red-700 rounded-lg font-bold shadow hover:bg-red-200">
+                                <button onClick={() => { setWidgets({ agenda: false, notes: false, dice: false, workformat: false, randomizer: false, group: false, timer: false, checkin: false, exitticket: false }); setStickers([]); }} className="px-4 py-2 bg-red-100 text-red-700 rounded-lg font-bold shadow hover:bg-red-200">
                                     🗑️ Rensa tavlan
                                 </button>
                             </div>
                         </header>
 
-                        {/* Molnmeny (Google Login / Templates) */}
+                        {/* Molnmeny */}
                         {showCloudMenu && (
                             <div className="absolute top-20 right-4 bg-white p-6 rounded-2xl shadow-2xl z-50 w-80 border">
                                 <div className="flex justify-between items-center mb-4 border-b pb-2">
@@ -288,20 +268,20 @@
                                 </div>
                                 {!user ? (
                                     <div className="text-center py-4">
-                                        <p className="text-sm text-gray-600 mb-4">Logga in för att spara dina tavlor till nästa lektion.</p>
+                                        <p className="text-sm text-gray-600 mb-4">Logga in med Google för att spara och ladda dina lektionsmallar.</p>
                                         <button onClick={handleLogin} className="w-full bg-blue-600 text-white font-bold py-3 rounded-xl hover:bg-blue-700">Fortsätt med Google</button>
                                     </div>
                                 ) : (
                                     <div>
                                         <div className="flex items-center gap-3 mb-4 bg-gray-50 p-2 rounded">
-                                            <img src={user.photoURL} className="w-10 h-10 rounded-full" />
+                                            {user.photoURL && <img src={user.photoURL} className="w-10 h-10 rounded-full" />}
                                             <div className="text-sm">Inloggad som<br/><b className="text-blue-600">{user.displayName}</b></div>
                                         </div>
                                         <button onClick={saveTemplate} className="w-full bg-green-500 text-white font-bold py-2 rounded-lg mb-4 hover:bg-green-600">➕ Spara nuvarande tavla</button>
                                         
-                                        <div className="font-bold text-xs text-gray-400 uppercase mb-2">Dina sparade tavlor:</div>
+                                        <div className="font-bold text-xs text-gray-400 uppercase mb-2">Sparade mallar:</div>
                                         <div className="max-h-48 overflow-y-auto custom-scrollbar flex flex-col gap-2">
-                                            {templates.length === 0 && <div className="text-sm text-gray-500 italic">Inga mallar sparade ännu.</div>}
+                                            {templates.length === 0 && <div className="text-sm text-gray-500 italic">Inga mallar än.</div>}
                                             {templates.map(t => (
                                                 <div key={t.id} className="flex justify-between items-center bg-gray-100 p-2 rounded">
                                                     <span className="font-bold truncate text-sm max-w-[150px]">{t.name}</span>
@@ -327,7 +307,7 @@
                                 </div>
                                 <div className="grid grid-cols-2 gap-3 mb-4">
                                     {bgOptions.map((b, i) => (
-                                        <img key={i} src={b} onClick={() => {setBg(b); setShowBgMenu(false);}} className="w-full h-20 object-cover rounded-lg cursor-pointer hover:ring-4 hover:ring-blue-400 transition-all shadow" />
+                                        <img key={i} src={b} onClick={() => { setBg(b); setShowBgMenu(false); }} className="w-full h-20 object-cover rounded-lg cursor-pointer hover:ring-4 hover:ring-blue-400 transition-all shadow" />
                                     ))}
                                 </div>
                                 <label className="flex items-center justify-center w-full bg-blue-50 text-blue-700 hover:bg-blue-100 cursor-pointer py-3 rounded-lg font-bold border border-blue-200">
@@ -345,21 +325,22 @@
                         )}
 
                         {/* Stickers på tavlan */}
-                        {stickers.map(s => <Sticker key={s.id} sticker={s} onRemove={(id) => setStickers(stickers.filter(st => st.id !== id))} />)}
+                        {stickers.map(s => <Sticker key={s.id} sticker={s} onRemove={(id) => setStickers(prev => prev.filter(st => st.id !== id))} />)}
 
                         {/* Widgets */}
                         {widgets.agenda && <AgendaWidget onClose={() => toggleWidget('agenda')} />}
                         {widgets.notes && <NotesWidget onClose={() => toggleWidget('notes')} />}
                         {widgets.dice && <DiceWidget onClose={() => toggleWidget('dice')} />}
                         {widgets.workformat && <WorkFormatWidget onClose={() => toggleWidget('workformat')} />}
+                        {widgets.randomizer && <RandomizerWidget onClose={() => toggleWidget('randomizer')} />}
                         {widgets.group && <GroupMakerWidget onClose={() => toggleWidget('group')} />}
                         {widgets.timer && <TimerWidget onClose={() => toggleWidget('timer')} />}
-                        {widgets.checkin && <CheckInWidget onClose={() => toggleWidget('checkin')} boardId={boardId} baseUrl={baseUrl} />}
-                        {widgets.exitticket && <ExitTicketWidget onClose={() => toggleWidget('exitticket')} boardId={boardId} baseUrl={baseUrl} />}
+                        {widgets.checkin && <CheckInWidget onClose={() => toggleWidget('checkin')} boardId={boardIdRef.current} baseUrl={baseUrl} />}
+                        {widgets.exitticket && <ExitTicketWidget onClose={() => toggleWidget('exitticket')} boardId={boardIdRef.current} baseUrl={baseUrl} />}
 
                         {/* Sticker Meny */}
                         {showStickerMenu && (
-                            <div className="absolute bottom-24 left-1/2 transform -translate-x-1/2 bg-white p-6 rounded-2xl shadow-2xl z-50 w-[450px] max-h-[60vh] flex flex-col border border-gray-200">
+                            <div className="absolute bottom-24 left-1/2 transform -translate-x-1/2 bg-white p-6 rounded-2xl shadow-2xl z-50 w-[460px] max-h-[60vh] flex flex-col border border-gray-200">
                                 <div className="flex justify-between items-center mb-4 border-b pb-3">
                                     <h3 className="font-bold text-xl text-gray-800">Välj klistermärke</h3>
                                     <button onClick={() => setShowStickerMenu(false)} className="text-sm bg-gray-100 hover:bg-gray-200 px-3 py-2 rounded-lg font-bold">✕ Stäng</button>
@@ -379,16 +360,17 @@
                             </div>
                         )}
 
-                        {/* Verktygs-Dockan */}
+                        {/* Docka i botten */}
                         <div className="dock">
                             <button className="dock-btn" onClick={() => toggleWidget('agenda')}><span className="dock-icon">📋</span><span className="dock-label">Agenda</span></button>
                             <button className="dock-btn" onClick={() => toggleWidget('notes')}><span className="dock-icon">📝</span><span className="dock-label">Anteckningar</span></button>
                             <button className="dock-btn" onClick={() => toggleWidget('dice')}><span className="dock-icon">🎲</span><span className="dock-label">Tärning</span></button>
                             <button className="dock-btn" onClick={() => toggleWidget('workformat')}><span className="dock-icon">🚦</span><span className="dock-label">Arbetsform</span></button>
+                            <button className="dock-btn" onClick={() => toggleWidget('randomizer')}><span className="dock-icon">🎯</span><span className="dock-label">Slumpa elev</span></button>
                             <button className="dock-btn" onClick={() => toggleWidget('group')}><span className="dock-icon">👥</span><span className="dock-label">Grupper</span></button>
                             <button className="dock-btn" onClick={() => toggleWidget('timer')}><span className="dock-icon">⏳</span><span className="dock-label">Timer</span></button>
                             <button className="dock-btn" onClick={() => setShowStickerMenu(!showStickerMenu)}><span className="dock-icon">✨</span><span className="dock-label">Stickers</span></button>
-                            <div className="w-px bg-gray-600 mx-2"></div>
+                            <div className="w-px bg-gray-600 mx-1"></div>
                             <button className="dock-btn" onClick={() => toggleWidget('checkin')}><span className="dock-icon">😊</span><span className="dock-label">Incheckning</span></button>
                             <button className="dock-btn" onClick={() => toggleWidget('exitticket')}><span className="dock-icon">📌</span><span className="dock-label">Exit Ticket</span></button>
                         </div>
@@ -396,39 +378,40 @@
                 );
             };
 
-            // --- KOMPONENTER FÖR TAVLAN ---
-
-            // Klistermärke med Papperskorg
+            // Sticker med litet kryss (✕)
             const Sticker = ({ sticker, onRemove }) => {
                 const [pos, handleDrag] = useDraggable({ x: sticker.x, y: sticker.y });
                 return (
                     <div className="sticker" style={{ left: pos.x, top: pos.y }}>
                         <div onMouseDown={handleDrag} onTouchStart={handleDrag} className="cursor-grab active:cursor-grabbing">{sticker.emoji}</div>
                         <button 
-                            onClick={() => onRemove(sticker.id)} 
-                            className="absolute -top-3 -right-3 bg-red-100 text-red-500 rounded-full w-8 h-8 flex items-center justify-center text-sm shadow hover:bg-red-500 hover:text-white transition-colors z-50">
-                            🗑️
+                            onClick={(e) => { e.stopPropagation(); onRemove(sticker.id); }} 
+                            title="Ta bort sticker"
+                            className="absolute -top-1 -right-1 bg-white hover:bg-red-500 hover:text-white text-gray-500 rounded-full w-5 h-5 flex items-center justify-center text-xs font-bold shadow border border-gray-200 transition-colors z-50">
+                            ✕
                         </button>
                     </div>
                 );
             };
 
-            // Fönster-mall
             const WidgetWrapper = ({ title, onClose, initialSize, children }) => {
-                const [pos, handleDrag] = useDraggable({ x: 100 + Math.random()*100, y: 100 + Math.random()*100 });
-                const [size, setSize] = useState(initialSize || { w: 300, h: 400 });
+                const [pos, handleDrag] = useDraggable({ x: 80 + Math.random()*80, y: 80 + Math.random()*80 });
+                const [size, setSize] = useState(initialSize || { w: 320, h: 420 });
                 
                 const handleResize = (e) => {
-                    const startX = e.clientX || e.touches[0].clientX;
-                    const startY = e.clientY || e.touches[0].clientY;
+                    const startX = e.clientX || (e.touches && e.touches[0].clientX);
+                    const startY = e.clientY || (e.touches && e.touches[0].clientY);
                     const startW = size.w; const startH = size.h;
                     
                     const onMove = (moveE) => {
-                        const curX = moveE.clientX || moveE.touches[0].clientX;
-                        const curY = moveE.clientY || moveE.touches[0].clientY;
-                        setSize({ w: Math.max(200, startW + (curX - startX)), h: Math.max(150, startH + (curY - startY)) });
+                        const curX = moveE.clientX || (moveE.touches && moveE.touches[0].clientX);
+                        const curY = moveE.clientY || (moveE.touches && moveE.touches[0].clientY);
+                        setSize({ w: Math.max(200, startW + (curX - startX)), h: Math.max(160, startH + (curY - startY)) });
                     };
-                    const onEnd = () => { document.removeEventListener('mousemove', onMove); document.removeEventListener('mouseup', onEnd); document.removeEventListener('touchmove', onMove); document.removeEventListener('touchend', onEnd); };
+                    const onEnd = () => { 
+                        document.removeEventListener('mousemove', onMove); document.removeEventListener('mouseup', onEnd); 
+                        document.removeEventListener('touchmove', onMove); document.removeEventListener('touchend', onEnd); 
+                    };
                     document.addEventListener('mousemove', onMove); document.addEventListener('mouseup', onEnd);
                     document.addEventListener('touchmove', onMove); document.addEventListener('touchend', onEnd);
                 };
@@ -447,9 +430,192 @@
                 );
             };
 
-            // 1. Timer Widget (NY!)
+            // 1. Agenda med 15 lektionsikoner + klick för att byta direkt
+            const AgendaWidget = ({ onClose }) => {
+                const iconList = ['📋', '📖', '✍️', '🗣️', '👥', '💻', '📐', '🎨', '🧪', '🎧', '🔔', '⭐', '🏃', '🥪', '❓'];
+                const [items, setItems] = useState([{ icon: '📖', text: 'Tyst läsning' }]);
+                const [newItem, setNewItem] = useState('');
+                const [icon, setIcon] = useState('📋');
+                const [presMode, setPresMode] = useState(false);
+
+                const cycleIcon = (index) => {
+                    if (presMode) return;
+                    setItems(items.map((it, i) => {
+                        if (i !== index) return it;
+                        const nextIdx = (iconList.indexOf(it.icon) + 1) % iconList.length;
+                        return { ...it, icon: iconList[nextIdx] };
+                    }));
+                };
+
+                return (
+                    <WidgetWrapper title="📋 Agenda" onClose={onClose}>
+                        <div className="flex justify-end mb-2">
+                            <button onClick={() => setPresMode(!presMode)} className="text-xs bg-gray-100 px-2 py-1 rounded font-bold hover:bg-gray-200">
+                                👁️ {presMode ? 'Redigera' : 'Presentation'}
+                            </button>
+                        </div>
+                        <div className="flex flex-col h-full relative">
+                            <div className="flex-1 overflow-y-auto space-y-2 pb-16 custom-scrollbar">
+                                {items.map((item, i) => (
+                                    <div key={i} className="flex items-center gap-3 bg-blue-50 p-2.5 rounded-lg text-lg">
+                                        <button onClick={() => cycleIcon(i)} title="Klicka för att byta symbol" className="text-2xl hover:scale-110 transition-transform">
+                                            {item.icon}
+                                        </button>
+                                        <span className="flex-1 font-semibold text-gray-800">{item.text}</span>
+                                        {!presMode && <button onClick={() => setItems(items.filter((_, idx) => idx !== i))} className="text-red-400 hover:text-red-600">🗑️</button>}
+                                    </div>
+                                ))}
+                            </div>
+                            {!presMode && (
+                                <div className="absolute bottom-0 left-0 right-0 flex gap-2 bg-white pt-2 border-t mt-2">
+                                    <select value={icon} onChange={e => setIcon(e.target.value)} className="bg-gray-100 p-2 rounded-lg border text-xl">
+                                        {iconList.map(ic => <option key={ic} value={ic}>{ic}</option>)}
+                                    </select>
+                                    <input value={newItem} onChange={e => setNewItem(e.target.value)} onKeyDown={e => e.key === 'Enter' && (newItem.trim() && setItems([...items, { icon, text: newItem.trim() }]), setNewItem(''))} className="flex-1 p-2 border rounded-lg" placeholder="Ny aktivitet..." />
+                                </div>
+                            )}
+                        </div>
+                    </WidgetWrapper>
+                );
+            };
+
+            // 2. Slumpa elev
+            const RandomizerWidget = ({ onClose }) => {
+                const [namesText, setNamesText] = useState("Anna, Björn, Cecilia, David, Elin, Filip, Greta, Hugo, Ida, Johan");
+                const [chosen, setChosen] = useState(null);
+                const [remaining, setRemaining] = useState([]);
+                const [isSettings, setIsSettings] = useState(false);
+
+                const getList = () => namesText.split(',').map(n => n.trim()).filter(n => n);
+
+                const pick = () => {
+                    let pool = remaining.length > 0 ? remaining : getList();
+                    if (pool.length === 0) return;
+                    const pickedIndex = Math.floor(Math.random() * pool.length);
+                    const selected = pool[pickedIndex];
+                    setChosen(selected);
+                    setRemaining(pool.filter((_, idx) => idx !== pickedIndex));
+                };
+
+                const resetPool = () => {
+                    setRemaining(getList());
+                    setChosen(null);
+                };
+
+                return (
+                    <WidgetWrapper title="🎯 Slumpa elev" onClose={onClose} initialSize={{w: 320, h: 320}}>
+                        <div className="flex justify-end mb-2">
+                            <button onClick={() => setIsSettings(!isSettings)} className="text-xs bg-gray-100 px-2 py-1 rounded font-bold">
+                                {isSettings ? 'Klar' : '⚙️ Ändra namn'}
+                            </button>
+                        </div>
+                        {isSettings ? (
+                            <div className="flex flex-col h-full gap-2">
+                                <label className="text-xs font-bold text-gray-500 uppercase">Klasslista (kommatecken)</label>
+                                <textarea value={namesText} onChange={e => setNamesText(e.target.value)} className="flex-1 p-2 border rounded resize-none text-sm" />
+                                <button onClick={() => { setIsSettings(false); resetPool(); }} className="bg-blue-600 text-white font-bold py-2 rounded">Spara klasslista</button>
+                            </div>
+                        ) : (
+                            <div className="flex flex-col items-center justify-center h-full gap-4">
+                                <div className="text-3xl font-extrabold text-center text-blue-700 bg-blue-50 w-full py-6 rounded-2xl shadow-inner min-h-[90px] flex items-center justify-center">
+                                    {chosen || 'Klicka på slumpa'}
+                                </div>
+                                <div className="text-xs text-gray-500">
+                                    {remaining.length} elever kvar i urvalet
+                                </div>
+                                <div className="flex gap-2 w-full">
+                                    <button onClick={pick} className="flex-1 bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 rounded-xl shadow text-lg">
+                                        Slumpa!
+                                    </button>
+                                    <button onClick={resetPool} title="Återställ lista" className="px-3 bg-gray-200 hover:bg-gray-300 rounded-xl font-bold">
+                                        🔄
+                                    </button>
+                                </div>
+                            </div>
+                        )}
+                    </WidgetWrapper>
+                );
+            };
+
+            // 3. Anteckningar
+            const NotesWidget = ({ onClose }) => (
+                <WidgetWrapper title="📝 Anteckningar" onClose={onClose} initialSize={{w: 380, h: 280}}>
+                    <textarea className="w-full h-full resize-none outline-none text-xl p-2" placeholder="Skriv lektionsanteckningar här..."></textarea>
+                </WidgetWrapper>
+            );
+
+            // 4. Tärning
+            const DiceWidget = ({ onClose }) => {
+                const [val, setVal] = useState(1);
+                return (
+                    <WidgetWrapper title="🎲 Tärning" onClose={onClose} initialSize={{w: 220, h: 260}}>
+                        <div className="flex flex-col items-center justify-center h-full gap-4">
+                            <div className="text-8xl">{['⚀','⚁','⚂','⚃','⚄','⚅'][val-1]}</div>
+                            <button onClick={() => setVal(Math.floor(Math.random() * 6) + 1)} className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-full font-bold shadow">Kasta</button>
+                        </div>
+                    </WidgetWrapper>
+                );
+            };
+
+            // 5. Arbetsform
+            const WorkFormatWidget = ({ onClose }) => {
+                const [mode, setMode] = useState(0);
+                const modes = [{c: 'bg-red-500', t: 'Tyst arbete'}, {c: 'bg-yellow-400', t: 'Viskton'}, {c: 'bg-green-500', t: 'Samarbete'}];
+                return (
+                    <WidgetWrapper title="🚦 Arbetsform" onClose={onClose} initialSize={{w: 240, h: 280}}>
+                        <div className="flex flex-col items-center justify-center h-full gap-5">
+                            <div className={`w-24 h-24 rounded-full ${modes[mode].c} shadow-lg transition-colors border-4 border-gray-100`}></div>
+                            <h2 className="text-2xl font-bold">{modes[mode].t}</h2>
+                            <button onClick={() => setMode((mode + 1) % 3)} className="px-4 py-2 bg-gray-200 hover:bg-gray-300 rounded-lg font-bold">Byt form</button>
+                        </div>
+                    </WidgetWrapper>
+                );
+            };
+
+            // 6. Gruppskapare
+            const GroupMakerWidget = ({ onClose }) => {
+                const [names, setNames] = useState("Anna, Björn, Cecilia, David, Elin, Filip, Greta");
+                const [numGroups, setNumGroups] = useState(2);
+                const [groups, setGroups] = useState([]);
+
+                const generate = () => {
+                    let list = names.split(',').map(n => n.trim()).filter(n => n);
+                    list = list.sort(() => Math.random() - 0.5);
+                    let result = Array.from({length: numGroups}, () => []);
+                    list.forEach((name, i) => result[i % numGroups].push(name));
+                    setGroups(result);
+                };
+
+                return (
+                    <WidgetWrapper title="👥 Gruppskapare" onClose={onClose} initialSize={{w: 400, h: 440}}>
+                        {groups.length === 0 ? (
+                            <div className="flex flex-col h-full gap-2">
+                                <label className="font-bold">Klasslista (kommatecken)</label>
+                                <textarea className="w-full h-24 border p-2 rounded" value={names} onChange={e => setNames(e.target.value)}></textarea>
+                                <label className="font-bold mt-2">Antal grupper: <span className="text-blue-600">{numGroups}</span></label>
+                                <input type="range" min="2" max="10" value={numGroups} onChange={e => setNumGroups(e.target.value)} className="w-full" />
+                                <button onClick={generate} className="mt-4 bg-purple-600 hover:bg-purple-700 text-white font-bold py-3 rounded-xl shadow">Slumpa Grupper</button>
+                            </div>
+                        ) : (
+                            <div className="flex flex-col h-full">
+                                <button onClick={() => setGroups([])} className="text-blue-600 underline mb-3 text-sm text-left">← Gör nya grupper</button>
+                                <div className="flex-1 overflow-y-auto grid grid-cols-2 gap-4 pb-4 custom-scrollbar">
+                                    {groups.map((g, i) => (
+                                        <div key={i} className="bg-gray-50 p-3 rounded-lg border border-gray-200 shadow-sm">
+                                            <div className="font-bold border-b pb-1 mb-2 text-purple-700">Grupp {i+1}</div>
+                                            <ul className="list-disc pl-4 text-sm">{g.map(n => <li key={n}>{n}</li>)}</ul>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
+                    </WidgetWrapper>
+                );
+            };
+
+            // 7. Timer
             const TimerWidget = ({ onClose }) => {
-                const [time, setTime] = useState(10 * 60); // Standard 10 minuter
+                const [time, setTime] = useState(10 * 60);
                 const [isRunning, setIsRunning] = useState(false);
 
                 useEffect(() => {
@@ -488,118 +654,7 @@
                 );
             };
 
-            // 2. Agenda
-            const AgendaWidget = ({ onClose }) => {
-                const [items, setItems] = useState([{ icon: '📖', text: 'Läsning' }]);
-                const [newItem, setNewItem] = useState('');
-                const [icon, setIcon] = useState('📋');
-                const [presMode, setPresMode] = useState(false);
-
-                return (
-                    <WidgetWrapper title="📋 Agenda" onClose={onClose}>
-                        <div className="flex justify-end mb-2">
-                            <button onClick={() => setPresMode(!presMode)} className="text-xs bg-gray-100 px-2 py-1 rounded">👁️ {presMode ? 'Redigera' : 'Presentation'}</button>
-                        </div>
-                        <div className="flex flex-col h-full relative">
-                            <div className="flex-1 overflow-y-auto space-y-2 pb-16 custom-scrollbar">
-                                {items.map((item, i) => (
-                                    <div key={i} className="flex items-center gap-3 bg-blue-50 p-3 rounded-lg text-lg">
-                                        <span className="text-2xl">{item.icon}</span>
-                                        <span className="flex-1 font-semibold">{item.text}</span>
-                                        {!presMode && <button onClick={() => setItems(items.filter((_, idx) => idx !== i))} className="text-red-400">🗑️</button>}
-                                    </div>
-                                ))}
-                            </div>
-                            {!presMode && (
-                                <div className="absolute bottom-0 left-0 right-0 flex gap-2 bg-white pt-2 border-t mt-2">
-                                    <select value={icon} onChange={e => setIcon(e.target.value)} className="bg-gray-100 p-2 rounded-lg border text-xl">
-                                        <option>📋</option><option>📖</option><option>✍️</option><option>🗣️</option><option>💻</option><option>🔔</option>
-                                    </select>
-                                    <input value={newItem} onChange={e => setNewItem(e.target.value)} onKeyDown={e => e.key === 'Enter' && (setItems([...items, { icon, text: newItem }]), setNewItem(''))} className="flex-1 p-2 border rounded-lg" placeholder="Ny punkt..." />
-                                </div>
-                            )}
-                        </div>
-                    </WidgetWrapper>
-                );
-            };
-
-            // 3. Anteckningar
-            const NotesWidget = ({ onClose }) => (
-                <WidgetWrapper title="📝 Anteckningar" onClose={onClose} initialSize={{w: 400, h: 300}}>
-                    <textarea className="w-full h-full resize-none outline-none text-xl p-2" placeholder="Skriv något viktigt här..."></textarea>
-                </WidgetWrapper>
-            );
-
-            // 4. Tärning
-            const DiceWidget = ({ onClose }) => {
-                const [val, setVal] = useState(1);
-                return (
-                    <WidgetWrapper title="🎲 Tärning" onClose={onClose} initialSize={{w: 200, h: 250}}>
-                        <div className="flex flex-col items-center justify-center h-full gap-4">
-                            <div className="text-8xl">{['⚀','⚁','⚂','⚃','⚄','⚅'][val-1]}</div>
-                            <button onClick={() => setVal(Math.floor(Math.random() * 6) + 1)} className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-full font-bold shadow">Kasta</button>
-                        </div>
-                    </WidgetWrapper>
-                );
-            };
-
-            // 5. Arbetsform
-            const WorkFormatWidget = ({ onClose }) => {
-                const [mode, setMode] = useState(0);
-                const modes = [{c: 'bg-red-500', t: 'Tyst arbete'}, {c: 'bg-yellow-400', t: 'Viskton'}, {c: 'bg-green-500', t: 'Samarbete'}];
-                return (
-                    <WidgetWrapper title="🚦 Arbetsform" onClose={onClose} initialSize={{w: 250, h: 300}}>
-                        <div className="flex flex-col items-center justify-center h-full gap-6">
-                            <div className={`w-24 h-24 rounded-full ${modes[mode].c} shadow-lg transition-colors border-4 border-gray-100`}></div>
-                            <h2 className="text-2xl font-bold">{modes[mode].t}</h2>
-                            <button onClick={() => setMode((mode + 1) % 3)} className="px-4 py-2 bg-gray-200 hover:bg-gray-300 rounded-lg font-bold">Byt form</button>
-                        </div>
-                    </WidgetWrapper>
-                );
-            };
-
-            // 6. Gruppskapare
-            const GroupMakerWidget = ({ onClose }) => {
-                const [names, setNames] = useState("Anna, Björn, Cecilia, David, Elin, Filip, Greta");
-                const [numGroups, setNumGroups] = useState(2);
-                const [groups, setGroups] = useState([]);
-
-                const generate = () => {
-                    let list = names.split(',').map(n => n.trim()).filter(n => n);
-                    list = list.sort(() => Math.random() - 0.5); // Blanda
-                    let result = Array.from({length: numGroups}, () => []);
-                    list.forEach((name, i) => result[i % numGroups].push(name));
-                    setGroups(result);
-                };
-
-                return (
-                    <WidgetWrapper title="👥 Gruppskapare" onClose={onClose} initialSize={{w: 400, h: 450}}>
-                        {groups.length === 0 ? (
-                            <div className="flex flex-col h-full gap-2">
-                                <label className="font-bold">Klasslista (separera med kommatecken)</label>
-                                <textarea className="w-full h-24 border p-2 rounded" value={names} onChange={e => setNames(e.target.value)}></textarea>
-                                <label className="font-bold mt-2">Antal grupper: <span className="text-blue-600">{numGroups}</span></label>
-                                <input type="range" min="2" max="10" value={numGroups} onChange={e => setNumGroups(e.target.value)} className="w-full" />
-                                <button onClick={generate} className="mt-4 bg-purple-600 hover:bg-purple-700 text-white font-bold py-3 rounded-xl shadow">Slumpa Grupper</button>
-                            </div>
-                        ) : (
-                            <div className="flex flex-col h-full">
-                                <button onClick={() => setGroups([])} className="text-blue-600 underline mb-3 text-sm text-left">← Gör nya grupper</button>
-                                <div className="flex-1 overflow-y-auto grid grid-cols-2 gap-4 pb-4 custom-scrollbar">
-                                    {groups.map((g, i) => (
-                                        <div key={i} className="bg-gray-50 p-3 rounded-lg border border-gray-200 shadow-sm">
-                                            <div className="font-bold border-b pb-1 mb-2 text-purple-700">Grupp {i+1}</div>
-                                            <ul className="list-disc pl-4 text-sm">{g.map(n => <li key={n}>{n}</li>)}</ul>
-                                        </div>
-                                    ))}
-                                </div>
-                            </div>
-                        )}
-                    </WidgetWrapper>
-                );
-            };
-
-            // 7. Incheckning (QR)
+            // 8. Incheckning (QR)
             const CheckInWidget = ({ onClose, boardId, baseUrl }) => {
                 const [q, setQ] = useState("Hur mår du idag?");
                 const [active, setActive] = useState(false);
@@ -622,7 +677,7 @@
                 const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(baseUrl + '?student=checkin&boardId=' + boardId + '&q=' + q)}`;
 
                 return (
-                    <WidgetWrapper title="😊 Incheckning" onClose={onClose} initialSize={{w: 400, h: 450}}>
+                    <WidgetWrapper title="😊 Incheckning" onClose={onClose} initialSize={{w: 380, h: 440}}>
                         {!active ? (
                             <div className="flex flex-col h-full gap-4">
                                 <label className="font-bold text-gray-700">Fråga till eleverna:</label>
@@ -630,9 +685,9 @@
                                 <button onClick={() => setActive(true)} className="bg-green-600 hover:bg-green-700 text-white py-3 rounded-xl font-bold text-lg mt-auto shadow">Starta Incheckning</button>
                             </div>
                         ) : (
-                            <div className="flex flex-col items-center h-full gap-4">
-                                <h3 className="font-bold text-lg text-center bg-gray-50 w-full p-2 rounded">{q}</h3>
-                                <div className="flex gap-4 items-end h-32 border-b w-full px-4 pt-4">
+                            <div className="flex flex-col items-center h-full gap-3">
+                                <h3 className="font-bold text-base text-center bg-gray-50 w-full p-2 rounded">{q}</h3>
+                                <div className="flex gap-4 items-end h-28 border-b w-full px-4 pt-2">
                                     {Object.keys(counts).map(emoji => {
                                         let max = Math.max(...Object.values(counts), 1);
                                         let h = (counts[emoji] / max) * 100;
@@ -645,9 +700,9 @@
                                         )
                                     })}
                                 </div>
-                                <div className="mt-4 p-4 border-2 border-dashed rounded-xl flex flex-col items-center bg-gray-50">
-                                    <p className="text-xs text-gray-500 mb-2 font-bold uppercase tracking-wide">Låt elever skanna koden</p>
-                                    <img src={qrUrl} className="w-28 h-28" />
+                                <div className="p-2 border-2 border-dashed rounded-xl flex flex-col items-center bg-gray-50 mt-1">
+                                    <p className="text-[11px] text-gray-500 mb-1 font-bold uppercase">Skanna koden</p>
+                                    <img src={qrUrl} className="w-24 h-24" />
                                 </div>
                             </div>
                         )}
@@ -655,7 +710,7 @@
                 );
             };
 
-            // 8. Exit Ticket (QR)
+            // 9. Exit Ticket (QR)
             const ExitTicketWidget = ({ onClose, boardId, baseUrl }) => {
                 const [q, setQ] = useState("Vad tar du med dig från lektionen?");
                 const [active, setActive] = useState(false);
@@ -678,7 +733,7 @@
                 const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(baseUrl + '?student=exitticket&boardId=' + boardId + '&q=' + q)}`;
 
                 return (
-                    <WidgetWrapper title="📌 Exit Ticket" onClose={onClose} initialSize={{w: 500, h: 500}}>
+                    <WidgetWrapper title="📌 Exit Ticket" onClose={onClose} initialSize={{w: 500, h: 480}}>
                         {!active ? (
                             <div className="flex flex-col h-full gap-4">
                                 <label className="font-bold text-gray-700">Fråga (fritext):</label>
@@ -687,15 +742,15 @@
                             </div>
                         ) : (
                             <div className="flex flex-col h-full">
-                                <div className="flex justify-between items-center bg-gray-50 p-3 rounded-lg mb-3 border shadow-sm">
-                                    <div className="font-bold text-sm text-gray-700 pr-4">{q}</div>
-                                    <img src={qrUrl} className="w-16 h-16 border bg-white p-1" />
+                                <div className="flex justify-between items-center bg-gray-50 p-2.5 rounded-lg mb-3 border shadow-sm">
+                                    <div className="font-bold text-sm text-gray-700 pr-3">{q}</div>
+                                    <img src={qrUrl} className="w-14 h-14 border bg-white p-1" />
                                 </div>
-                                <div className="flex-1 overflow-y-auto grid grid-cols-2 gap-4 p-3 bg-gray-200 rounded-lg inner-shadow custom-scrollbar">
+                                <div className="flex-1 overflow-y-auto grid grid-cols-2 gap-3 p-3 bg-gray-200 rounded-lg inner-shadow custom-scrollbar">
                                     {tickets.length === 0 && <div className="col-span-2 text-center text-gray-500 mt-10 font-medium">Väntar på svar...</div>}
                                     {tickets.map((t, i) => (
                                         <div key={i} className="post-it">
-                                            <div className="font-bold text-xs border-b border-yellow-500/30 pb-1 mb-2 text-gray-800">{t.name}</div>
+                                            <div className="font-bold text-xs border-b border-yellow-500/30 pb-1 mb-1 text-gray-800">{t.name}</div>
                                             <div className="text-sm text-gray-900 leading-relaxed">{t.text}</div>
                                         </div>
                                     ))}
@@ -706,8 +761,7 @@
                 );
             };
 
-            const root = ReactDOM.createRoot(document.getElementById('root'));
-            root.render(<App />);
+            ReactDOM.createRoot(document.getElementById('root')).render(<App />);
         }
     </script>
 </body>
