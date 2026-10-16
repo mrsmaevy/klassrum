@@ -199,7 +199,7 @@
                 const [widgets, setWidgets] = useState({ clock: false, agenda: false, notes: false, dice: false, workformat: false, randomizer: false, group: false, timer: false, checkin: false, exitticket: false });
                 const [widgetLayout, setWidgetLayout] = useState(defaultLayout);
                 
-                // Innehåll och aktiva vyer (sparas permanent)
+                // Innehåll och aktiva vyer
                 const [stickers, setStickers] = useState([]);
                 const [agendaItems, setAgendaItems] = useState([{ icon: '📖', text: 'Tyst läsning' }]);
                 const [agendaPresMode, setAgendaPresMode] = useState(false);
@@ -208,7 +208,7 @@
                 const [timerSeconds, setTimerSeconds] = useState(10 * 60);
                 const [namesList, setNamesList] = useState("Anna, Björn, Cecilia, David, Elin, Filip, Greta, Hugo, Ida, Johan");
                 
-                // Gruppskaparens tillstånd
+                // Grupper
                 const [createdGroups, setCreatedGroups] = useState([]);
                 const [numGroups, setNumGroups] = useState(2);
 
@@ -292,7 +292,7 @@
                     reader.readAsDataURL(file);
                 };
 
-                // Spara all data och alla aktiva vyer i molnmallen
+                // SPARAR UTAN ATT ORSAKA NESTED ARRAYS ERROR
                 const saveTemplate = async () => {
                     if (!user) {
                         alert("Logga in med Google först för att spara mallar!");
@@ -306,23 +306,24 @@
                         await window.firebaseApp.addDoc(window.firebaseApp.collection(window.firebaseApp.db, "templates"), {
                             userId: user.uid,
                             name: name,
-                            bg: bg,
+                            bg: bg || '',
                             activeWidgets: activeWidgets,
                             widgetLayout: widgetLayout,
                             stickers: stickers,
                             agendaItems: agendaItems,
-                            agendaPresMode: agendaPresMode,
-                            notesText: notesText,
-                            workFormatIdx: workFormatIdx,
-                            timerSeconds: timerSeconds,
-                            namesList: namesList,
-                            createdGroups: createdGroups,
-                            numGroups: numGroups,
-                            randomizerChosen: randomizerChosen,
-                            checkInQuestion: checkInQuestion,
-                            checkInActive: checkInActive,
-                            exitTicketQuestion: exitTicketQuestion,
-                            exitTicketActive: exitTicketActive,
+                            agendaPresMode: Boolean(agendaPresMode),
+                            notesText: notesText || '',
+                            workFormatIdx: Number(workFormatIdx) || 0,
+                            timerSeconds: Number(timerSeconds) || 600,
+                            namesList: namesList || '',
+                            // Serialiseras till JSON-sträng för att inte utlösa Firestore nested arrays-felet
+                            createdGroupsJson: JSON.stringify(createdGroups || []),
+                            numGroups: Number(numGroups) || 2,
+                            randomizerChosen: randomizerChosen || null,
+                            checkInQuestion: checkInQuestion || '',
+                            checkInActive: Boolean(checkInActive),
+                            exitTicketQuestion: exitTicketQuestion || '',
+                            exitTicketActive: Boolean(exitTicketActive),
                             timestamp: new Date()
                         });
                         alert("Mallen med alla grupper, placeringar och texter har sparats i molnet! ☁️");
@@ -331,7 +332,7 @@
                     }
                 };
 
-                // Ladda mallen och återskapa exakt samma tillstånd
+                // ÅTERSTÄLLER GRUPPER OCH ALLA VYER UTAN FEL
                 const loadTemplate = (tmpl) => {
                     if (tmpl.bg) setBg(tmpl.bg);
                     
@@ -352,11 +353,19 @@
                     if (tmpl.timerSeconds !== undefined) setTimerSeconds(tmpl.timerSeconds);
                     if (tmpl.namesList) setNamesList(tmpl.namesList);
                     
-                    // Återställ grupper, vald elev och aktiva QR-vyer
-                    if (tmpl.createdGroups) setCreatedGroups(tmpl.createdGroups);
-                    else setCreatedGroups([]);
-                    if (tmpl.numGroups) setNumGroups(tmpl.numGroups);
+                    if (tmpl.createdGroupsJson) {
+                        try {
+                            setCreatedGroups(JSON.parse(tmpl.createdGroupsJson));
+                        } catch (e) {
+                            setCreatedGroups([]);
+                        }
+                    } else if (tmpl.createdGroups && Array.isArray(tmpl.createdGroups)) {
+                        setCreatedGroups(tmpl.createdGroups);
+                    } else {
+                        setCreatedGroups([]);
+                    }
 
+                    if (tmpl.numGroups) setNumGroups(tmpl.numGroups);
                     if (tmpl.randomizerChosen !== undefined) setRandomizerChosen(tmpl.randomizerChosen);
                     
                     if (tmpl.checkInQuestion) setCheckInQuestion(tmpl.checkInQuestion);
@@ -504,7 +513,7 @@
                             />
                         ))}
 
-                        {/* Widgets med bevarat läge och innehåll */}
+                        {/* Widgets med fasta och sparade layout-positioner */}
                         {widgets.clock && (
                             <WidgetWrapper title="🕒 Klocka" layout={widgetLayout.clock} onUpdateLayout={(d) => updateLayout('clock', d)} onClose={() => toggleWidget('clock')}>
                                 <ClockWidgetContent />
