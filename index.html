@@ -184,22 +184,59 @@
 
                 const handleLogout = () => { window.firebaseApp.signOut(window.firebaseApp.auth); };
 
+                // Automatisk bildkomprimering i webbläsaren
+                const handleImageUpload = (e) => {
+                    const file = e.target.files[0];
+                    if (!file) return;
+
+                    const reader = new FileReader();
+                    reader.onload = (event) => {
+                        const img = new Image();
+                        img.onload = () => {
+                            const canvas = document.createElement('canvas');
+                            const MAX_WIDTH = 1280;
+                            const scale = Math.min(1, MAX_WIDTH / img.width);
+                            canvas.width = img.width * scale;
+                            canvas.height = img.height * scale;
+
+                            const ctx = canvas.getContext('2d');
+                            ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+
+                            // Komprimerar till JPEG 0.55 -> ger skarp bild på ca 60-90 kB som sparas i Firestore utan fel
+                            const compressedBase64 = canvas.toDataURL('image/jpeg', 0.55);
+                            setBg(compressedBase64);
+                            setShowBgMenu(false);
+                        };
+                        img.src = event.target.result;
+                    };
+                    reader.readAsDataURL(file);
+                };
+
                 const saveTemplate = async () => {
+                    if (!user) {
+                        alert("Du måste logga in med Google först för att kunna spara mallar!");
+                        return;
+                    }
                     const name = prompt("Namnge denna tavla (t.ex. 'Svenska Åk 7'):");
                     if (!name) return;
                     const activeWidgets = Object.keys(widgets).filter(k => widgets[k]);
                     
-                    await window.firebaseApp.addDoc(window.firebaseApp.collection(window.firebaseApp.db, "templates"), {
-                        userId: user.uid,
-                        name: name,
-                        bg: bg,
-                        activeWidgets: activeWidgets
-                    });
-                    alert("Mallen har sparats i molnet! ☁️");
+                    try {
+                        await window.firebaseApp.addDoc(window.firebaseApp.collection(window.firebaseApp.db, "templates"), {
+                            userId: user.uid,
+                            name: name,
+                            bg: bg,
+                            activeWidgets: activeWidgets,
+                            timestamp: new Date()
+                        });
+                        alert("Mallen har sparats i molnet! ☁️");
+                    } catch (err) {
+                        alert("Kunde inte spara till molnet: " + err.message);
+                    }
                 };
 
                 const loadTemplate = (tmpl) => {
-                    setBg(tmpl.bg);
+                    if (tmpl.bg) setBg(tmpl.bg);
                     let newWidgets = { clock: false, agenda: false, notes: false, dice: false, workformat: false, randomizer: false, group: false, timer: false, checkin: false, exitticket: false };
                     if(tmpl.activeWidgets) {
                         tmpl.activeWidgets.forEach(w => newWidgets[w] = true);
@@ -298,7 +335,7 @@
                             </div>
                         )}
 
-                        {/* Bakgrundsmeny */}
+                        {/* Bakgrundsmeny med automatisk komprimering */}
                         {showBgMenu && (
                             <div className="absolute top-20 right-40 bg-white p-5 rounded-2xl shadow-2xl z-50 w-85 border">
                                 <div className="flex justify-between items-center mb-4">
@@ -311,23 +348,14 @@
                                     ))}
                                 </div>
                                 
-                                <div className="flex flex-col gap-2 border-t pt-3">
-                                    {/* Enbart Webbadress / Länk till bild kvar */}
-                                    <button 
-                                        onClick={() => {
-                                            const url = prompt("Klistra in länk (bildadress) till en valfri bild på nätet:");
-                                            if(url && url.trim() !== "") {
-                                                setBg(url.trim());
-                                                setShowBgMenu(false);
-                                            }
-                                        }} 
-                                        className="w-full flex items-center justify-center bg-blue-50 text-blue-700 hover:bg-blue-100 py-3 rounded-lg font-bold border border-blue-200 shadow-sm text-sm"
-                                    >
-                                        🔗 Klistra in bildlänk
-                                    </button>
+                                <div className="border-t pt-3">
+                                    <label className="flex items-center justify-center w-full bg-blue-600 hover:bg-blue-700 text-white cursor-pointer py-3 rounded-xl font-bold shadow-md text-sm transition-all">
+                                        📁 Ladda upp egen bild (från datorn)
+                                        <input type="file" className="hidden" accept="image/*" onChange={handleImageUpload} />
+                                    </label>
                                 </div>
-                                <p className="text-[10px] text-gray-500 text-center mt-2 leading-tight">
-                                    Tips för egna bilder: Ladda upp din bild på t.ex. <b>postimages.org</b> och klistra in "Direct link" här, så fungerar den på alla skoldatorer!
+                                <p className="text-[11px] text-gray-500 text-center mt-2 leading-tight">
+                                    Bilden anpassas och komprimeras automatiskt så att den alltid kan sparas till molnet och fungerar på alla datorer.
                                 </p>
                             </div>
                         )}
@@ -453,7 +481,7 @@
                 );
             };
 
-            // 0. Ny Klock-widget (Endast timmar och minuter)
+            // 0. Klock-widget
             const ClockWidget = ({ onClose }) => {
                 const [time, setTime] = useState(new Date());
 
@@ -545,7 +573,7 @@
                 );
             };
 
-            // 2. Riktiga grafiska tärningar
+            // 2. Grafiska tärningar
             const DiceWidget = ({ onClose }) => {
                 const [count, setCount] = useState(2);
                 const [vals, setVals] = useState([3, 5]);
@@ -774,7 +802,6 @@
                 return (
                     <WidgetWrapper title="⏳ Time Timer" onClose={onClose} initialSize={{w: 320, h: 360}}>
                         <div className="flex flex-col items-center justify-between h-full py-2">
-                            
                             <div 
                                 className="relative w-44 h-44 rounded-full shadow-inner flex items-center justify-center transition-all duration-1000 ease-linear" 
                                 style={{ background: `conic-gradient(#ef4444 ${pct}%, #e5e7eb ${pct}%)` }}
