@@ -444,7 +444,7 @@
                 );
             };
 
-            // 0. Ny Klock-widget
+            // 0. Ny Klock-widget (Endast timmar och minuter)
             const ClockWidget = ({ onClose }) => {
                 const [time, setTime] = useState(new Date());
 
@@ -456,8 +456,8 @@
                 return (
                     <WidgetWrapper title="🕒 Klocka" onClose={onClose} initialSize={{w: 280, h: 180}}>
                         <div className="flex flex-col items-center justify-center h-full">
-                            <div className="text-[54px] leading-none font-sans font-extrabold tabular-nums tracking-wide text-gray-800 drop-shadow-sm">
-                                {time.toLocaleTimeString('sv-SE', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
+                            <div className="text-[72px] leading-none font-sans font-extrabold tabular-nums tracking-wide text-gray-800 drop-shadow-sm">
+                                {time.toLocaleTimeString('sv-SE', { hour: '2-digit', minute: '2-digit' })}
                             </div>
                             <div className="text-lg text-gray-500 font-bold mt-2 uppercase tracking-widest">
                                 {time.toLocaleDateString('sv-SE', { weekday: 'long', day: 'numeric', month: 'long' })}
@@ -754,20 +754,18 @@
                     const newTime = Math.max(0, time + delta);
                     setTime(newTime);
                     setInitialTime(newTime);
-                    setIsRunning(false); // Pausar automatiskt vid ändring
+                    setIsRunning(false);
                 };
 
                 const m = Math.floor(time / 60).toString().padStart(2, '0');
                 const s = (time % 60).toString().padStart(2, '0');
                 
-                // Räkna ut procent för den röda cirkeln
                 const pct = initialTime > 0 ? (time / initialTime) * 100 : 0;
 
                 return (
                     <WidgetWrapper title="⏳ Time Timer" onClose={onClose} initialSize={{w: 320, h: 360}}>
                         <div className="flex flex-col items-center justify-between h-full py-2">
                             
-                            {/* Röd Visuell Timer */}
                             <div 
                                 className="relative w-44 h-44 rounded-full shadow-inner flex items-center justify-center transition-all duration-1000 ease-linear" 
                                 style={{ background: `conic-gradient(#ef4444 ${pct}%, #e5e7eb ${pct}%)` }}
