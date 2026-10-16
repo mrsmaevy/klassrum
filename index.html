@@ -143,14 +143,24 @@
             };
 
             const App = () => {
+                // Aktiva moduler
                 const [bg, setBg] = useState('https://images.unsplash.com/photo-1507525428034-b723cf961d3e?auto=format&fit=crop&w=1920&q=80');
                 const [widgets, setWidgets] = useState({ clock: false, agenda: false, notes: false, dice: false, workformat: false, randomizer: false, group: false, timer: false, checkin: false, exitticket: false });
-                const [stickers, setStickers] = useState([]);
                 
+                // Innehåll i modulerna (sparas i mallen!)
+                const [stickers, setStickers] = useState([]);
+                const [agendaItems, setAgendaItems] = useState([{ icon: '📖', text: 'Tyst läsning' }]);
+                const [notesText, setNotesText] = useState('');
+                const [workFormatIdx, setWorkFormatIdx] = useState(0);
+                const [timerSeconds, setTimerSeconds] = useState(10 * 60);
+                const [namesList, setNamesList] = useState("Anna, Björn, Cecilia, David, Elin, Filip, Greta, Hugo, Ida, Johan");
+
+                // Menyer
                 const [showStickerMenu, setShowStickerMenu] = useState(false);
                 const [showBgMenu, setShowBgMenu] = useState(false);
                 const [showCloudMenu, setShowCloudMenu] = useState(false);
                 
+                // Auth & Mallar
                 const [user, setUser] = useState(null);
                 const [templates, setTemplates] = useState([]);
                 
@@ -184,7 +194,7 @@
 
                 const handleLogout = () => { window.firebaseApp.signOut(window.firebaseApp.auth); };
 
-                // Automatisk bildkomprimering i webbläsaren
+                // Automatisk bildkomprimering
                 const handleImageUpload = (e) => {
                     const file = e.target.files[0];
                     if (!file) return;
@@ -202,7 +212,6 @@
                             const ctx = canvas.getContext('2d');
                             ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
 
-                            // Komprimerar till JPEG 0.55 -> ger skarp bild på ca 60-90 kB som sparas i Firestore utan fel
                             const compressedBase64 = canvas.toDataURL('image/jpeg', 0.55);
                             setBg(compressedBase64);
                             setShowBgMenu(false);
@@ -212,6 +221,7 @@
                     reader.readAsDataURL(file);
                 };
 
+                // SPARA ALLT INNEHÅLL I MALLEN
                 const saveTemplate = async () => {
                     if (!user) {
                         alert("Du måste logga in med Google först för att kunna spara mallar!");
@@ -227,22 +237,40 @@
                             name: name,
                             bg: bg,
                             activeWidgets: activeWidgets,
+                            stickers: stickers,
+                            agendaItems: agendaItems,
+                            notesText: notesText,
+                            workFormatIdx: workFormatIdx,
+                            timerSeconds: timerSeconds,
+                            namesList: namesList,
                             timestamp: new Date()
                         });
-                        alert("Mallen har sparats i molnet! ☁️");
+                        alert("Mallen med alla texter och inställningar har sparats i molnet! ☁️");
                     } catch (err) {
                         alert("Kunde inte spara till molnet: " + err.message);
                     }
                 };
 
+                // LADDA ALLT INNEHÅLL FRÅN MALLEN
                 const loadTemplate = (tmpl) => {
                     if (tmpl.bg) setBg(tmpl.bg);
+                    
                     let newWidgets = { clock: false, agenda: false, notes: false, dice: false, workformat: false, randomizer: false, group: false, timer: false, checkin: false, exitticket: false };
                     if(tmpl.activeWidgets) {
                         tmpl.activeWidgets.forEach(w => newWidgets[w] = true);
                     }
                     setWidgets(newWidgets);
-                    setStickers([]);
+                    
+                    // Återställ allt sparat innehåll
+                    if (tmpl.stickers) setStickers(tmpl.stickers);
+                    else setStickers([]);
+                    
+                    if (tmpl.agendaItems) setAgendaItems(tmpl.agendaItems);
+                    if (tmpl.notesText !== undefined) setNotesText(tmpl.notesText);
+                    if (tmpl.workFormatIdx !== undefined) setWorkFormatIdx(tmpl.workFormatIdx);
+                    if (tmpl.timerSeconds !== undefined) setTimerSeconds(tmpl.timerSeconds);
+                    if (tmpl.namesList) setNamesList(tmpl.namesList);
+                    
                     setShowCloudMenu(false);
                 };
 
@@ -255,6 +283,13 @@
                 const addSticker = (emoji) => {
                     setStickers(prev => [...prev, { id: Date.now(), emoji, x: window.innerWidth / 2 - 40, y: window.innerHeight / 2 - 40 }]);
                     setShowStickerMenu(false);
+                };
+
+                const resetBoard = () => {
+                    setWidgets({ clock: false, agenda: false, notes: false, dice: false, workformat: false, randomizer: false, group: false, timer: false, checkin: false, exitticket: false });
+                    setStickers([]);
+                    setNotesText('');
+                    setAgendaItems([{ icon: '📖', text: 'Tyst läsning' }]);
                 };
 
                 const stickerCategories = {
@@ -290,7 +325,7 @@
                                 <button onClick={() => setShowBgMenu(!showBgMenu)} className="px-4 py-2 bg-gray-100 text-gray-800 rounded-lg font-bold shadow hover:bg-gray-200">
                                     🌄 Bakgrund
                                 </button>
-                                <button onClick={() => { setWidgets({ clock: false, agenda: false, notes: false, dice: false, workformat: false, randomizer: false, group: false, timer: false, checkin: false, exitticket: false }); setStickers([]); }} className="px-4 py-2 bg-red-100 text-red-700 rounded-lg font-bold shadow hover:bg-red-200">
+                                <button onClick={resetBoard} className="px-4 py-2 bg-red-100 text-red-700 rounded-lg font-bold shadow hover:bg-red-200">
                                     🗑️ Rensa tavlan
                                 </button>
                             </div>
@@ -335,7 +370,7 @@
                             </div>
                         )}
 
-                        {/* Bakgrundsmeny med automatisk komprimering */}
+                        {/* Bakgrundsmeny */}
                         {showBgMenu && (
                             <div className="absolute top-20 right-40 bg-white p-5 rounded-2xl shadow-2xl z-50 w-85 border">
                                 <div className="flex justify-between items-center mb-4">
@@ -355,7 +390,7 @@
                                     </label>
                                 </div>
                                 <p className="text-[11px] text-gray-500 text-center mt-2 leading-tight">
-                                    Bilden anpassas och komprimeras automatiskt så att den alltid kan sparas till molnet och fungerar på alla datorer.
+                                    Bilden optimeras automatiskt så att den kan sparas i molnet och visas på alla skärmar.
                                 </p>
                             </div>
                         )}
@@ -369,15 +404,15 @@
                             />
                         ))}
 
-                        {/* Widgets */}
+                        {/* Widgets med bevarat innehåll */}
                         {widgets.clock && <ClockWidget onClose={() => toggleWidget('clock')} />}
-                        {widgets.agenda && <AgendaWidget onClose={() => toggleWidget('agenda')} />}
-                        {widgets.notes && <NotesWidget onClose={() => toggleWidget('notes')} />}
+                        {widgets.agenda && <AgendaWidget items={agendaItems} setItems={setAgendaItems} onClose={() => toggleWidget('agenda')} />}
+                        {widgets.notes && <NotesWidget text={notesText} setText={setNotesText} onClose={() => toggleWidget('notes')} />}
                         {widgets.dice && <DiceWidget onClose={() => toggleWidget('dice')} />}
-                        {widgets.workformat && <WorkFormatWidget onClose={() => toggleWidget('workformat')} />}
-                        {widgets.randomizer && <RandomizerWidget onClose={() => toggleWidget('randomizer')} />}
-                        {widgets.group && <GroupMakerWidget onClose={() => toggleWidget('group')} />}
-                        {widgets.timer && <TimerWidget onClose={() => toggleWidget('timer')} />}
+                        {widgets.workformat && <WorkFormatWidget activeIdx={workFormatIdx} setActiveIdx={setWorkFormatIdx} onClose={() => toggleWidget('workformat')} />}
+                        {widgets.randomizer && <RandomizerWidget namesText={namesList} setNamesText={setNamesList} onClose={() => toggleWidget('randomizer')} />}
+                        {widgets.group && <GroupMakerWidget names={namesList} setNames={setNamesList} onClose={() => toggleWidget('group')} />}
+                        {widgets.timer && <TimerWidget initialSeconds={timerSeconds} setInitialSeconds={setTimerSeconds} onClose={() => toggleWidget('timer')} />}
                         {widgets.checkin && <CheckInWidget onClose={() => toggleWidget('checkin')} boardId={boardIdRef.current} baseUrl={baseUrl} />}
                         {widgets.exitticket && <ExitTicketWidget onClose={() => toggleWidget('exitticket')} boardId={boardIdRef.current} baseUrl={baseUrl} />}
 
@@ -504,10 +539,9 @@
                 );
             };
 
-            // 1. Agenda
-            const AgendaWidget = ({ onClose }) => {
+            // 1. Agenda (Synkad med mallen)
+            const AgendaWidget = ({ items, setItems, onClose }) => {
                 const iconList = ['📋', '📖', '✍️', '🗣️', '👥', '💻', '📐', '🎨', '🧪', '🎧', '🔔', '⭐', '🏃', '🥪', '❓'];
-                const [items, setItems] = useState([{ icon: '📖', text: 'Tyst läsning' }]);
                 const [newItem, setNewItem] = useState('');
                 const [icon, setIcon] = useState('📋');
                 const [presMode, setPresMode] = useState(false);
@@ -553,6 +587,17 @@
                 );
             };
 
+            // 2. Anteckningar (Synkad med mallen)
+            const NotesWidget = ({ text, setText, onClose }) => (
+                <WidgetWrapper title="📝 Anteckningar" onClose={onClose} initialSize={{w: 380, h: 280}}>
+                    <textarea 
+                        value={text} 
+                        onChange={e => setText(e.target.value)} 
+                        className="w-full h-full resize-none outline-none text-xl p-2" 
+                        placeholder="Skriv lektionsanteckningar här..."></textarea>
+                </WidgetWrapper>
+            );
+
             // Visual Die-Component
             const Die = ({ val, rolling }) => {
                 const dots = {
@@ -573,7 +618,7 @@
                 );
             };
 
-            // 2. Grafiska tärningar
+            // 3. Grafiska tärningar
             const DiceWidget = ({ onClose }) => {
                 const [count, setCount] = useState(2);
                 const [vals, setVals] = useState([3, 5]);
@@ -629,9 +674,8 @@
                 );
             };
 
-            // 3. Arbetsform
-            const WorkFormatWidget = ({ onClose }) => {
-                const [activeIdx, setActiveIdx] = useState(0);
+            // 4. Arbetsform (Synkad med mallen)
+            const WorkFormatWidget = ({ activeIdx, setActiveIdx, onClose }) => {
                 const formats = [
                     { icon: '🤫', title: 'Tyst arbete', sub: 'Fokusera & arbeta självständigt', color: 'from-blue-600 to-indigo-700' },
                     { icon: '💬', title: 'Viskton', sub: 'Prata lågmält med bänkgrannen', color: 'from-emerald-500 to-teal-700' },
@@ -639,7 +683,7 @@
                     { icon: '🤝', title: 'Samarbete', sub: 'Grupparbete & gemensam diskussion', color: 'from-purple-600 to-pink-600' }
                 ];
 
-                const current = formats[activeIdx];
+                const current = formats[activeIdx] || formats[0];
 
                 return (
                     <WidgetWrapper title="🤫 Arbetsform" onClose={onClose} initialSize={{w: 330, h: 360}}>
@@ -665,9 +709,8 @@
                 );
             };
 
-            // 4. Slumpa elev
-            const RandomizerWidget = ({ onClose }) => {
-                const [namesText, setNamesText] = useState("Anna, Björn, Cecilia, David, Elin, Filip, Greta, Hugo, Ida, Johan");
+            // 5. Slumpa elev (Synkad med mallen)
+            const RandomizerWidget = ({ namesText, setNamesText, onClose }) => {
                 const [chosen, setChosen] = useState(null);
                 const [remaining, setRemaining] = useState([]);
                 const [isSettings, setIsSettings] = useState(false);
@@ -723,16 +766,8 @@
                 );
             };
 
-            // 5. Anteckningar
-            const NotesWidget = ({ onClose }) => (
-                <WidgetWrapper title="📝 Anteckningar" onClose={onClose} initialSize={{w: 380, h: 280}}>
-                    <textarea className="w-full h-full resize-none outline-none text-xl p-2" placeholder="Skriv lektionsanteckningar här..."></textarea>
-                </WidgetWrapper>
-            );
-
-            // 6. Gruppskapare
-            const GroupMakerWidget = ({ onClose }) => {
-                const [names, setNames] = useState("Anna, Björn, Cecilia, David, Elin, Filip, Greta");
+            // 6. Gruppskapare (Synkad med mallen)
+            const GroupMakerWidget = ({ names, setNames, onClose }) => {
                 const [numGroups, setNumGroups] = useState(2);
                 const [groups, setGroups] = useState([]);
 
@@ -771,11 +806,15 @@
                 );
             };
 
-            // 7. Visuell Time-Timer
-            const TimerWidget = ({ onClose }) => {
-                const [time, setTime] = useState(10 * 60);
-                const [initialTime, setInitialTime] = useState(10 * 60);
+            // 7. Visuell Time-Timer (Synkad med mallen)
+            const TimerWidget = ({ initialSeconds, setInitialSeconds, onClose }) => {
+                const [time, setTime] = useState(initialSeconds || 600);
                 const [isRunning, setIsRunning] = useState(false);
+
+                useEffect(() => {
+                    setTime(initialSeconds || 600);
+                    setIsRunning(false);
+                }, [initialSeconds]);
 
                 useEffect(() => {
                     let interval;
@@ -788,16 +827,16 @@
                 }, [isRunning, time]);
 
                 const changeTime = (delta) => {
-                    const newTime = Math.max(0, time + delta);
+                    const newTime = Math.max(60, (initialSeconds || 600) + delta);
+                    setInitialSeconds(newTime);
                     setTime(newTime);
-                    setInitialTime(newTime);
                     setIsRunning(false);
                 };
 
                 const m = Math.floor(time / 60).toString().padStart(2, '0');
                 const s = (time % 60).toString().padStart(2, '0');
-                
-                const pct = initialTime > 0 ? (time / initialTime) * 100 : 0;
+                const maxSec = initialSeconds || 600;
+                const pct = maxSec > 0 ? (time / maxSec) * 100 : 0;
 
                 return (
                     <WidgetWrapper title="⏳ Time Timer" onClose={onClose} initialSize={{w: 320, h: 360}}>
@@ -820,7 +859,7 @@
                                 <button onClick={() => setIsRunning(!isRunning)} className={`flex-2 w-2/3 text-white font-bold py-3 rounded-xl shadow ${isRunning ? 'bg-orange-500' : 'bg-green-500'}`}>
                                     {isRunning ? 'Paus' : 'Starta'}
                                 </button>
-                                <button onClick={() => { setIsRunning(false); setTime(10 * 60); setInitialTime(10 * 60); }} className="flex-1 bg-red-500 hover:bg-red-600 text-white font-bold py-3 rounded-xl shadow">
+                                <button onClick={() => { setIsRunning(false); setTime(initialSeconds || 600); }} className="flex-1 bg-red-500 hover:bg-red-600 text-white font-bold py-3 rounded-xl shadow">
                                     Återställ
                                 </button>
                             </div>
