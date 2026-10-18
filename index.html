@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Klassrumsskärm</title>
     
-    <!-- Google Fonts: Outfit (Täby Parkskolans officiella profilteckensnitt) -->
+    <!-- Google Fonts: Outfit -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&display=swap" rel="stylesheet">
@@ -118,7 +118,7 @@
             user-select: none; 
             display: inline-block; 
             touch-action: none; 
-            z-index: 40 !important; /* Alltid överst */
+            z-index: 40 !important; 
         }
         
         .custom-scrollbar::-webkit-scrollbar { width: 6px; }
@@ -307,8 +307,9 @@
                 });
                 const [widgetLayout, setWidgetLayout] = useState(defaultLayout);
                 
-                // Aktivt vald widget (övriga visas i rent presentationsläge)
+                // Aktivt vald widget & sticker
                 const [selectedWidgetKey, setSelectedWidgetKey] = useState(null);
+                const [selectedStickerId, setSelectedStickerId] = useState(null);
 
                 // Innehåll och data
                 const [stickers, setStickers] = useState([]);
@@ -342,7 +343,10 @@
                 const toggleWidget = (w) => {
                     setWidgets(prev => {
                         const next = !prev[w];
-                        if (next) setSelectedWidgetKey(w);
+                        if (next) {
+                            setSelectedWidgetKey(w);
+                            setSelectedStickerId(null);
+                        }
                         return { ...prev, [w]: next };
                     });
                 };
@@ -405,7 +409,6 @@
                     reader.readAsDataURL(file);
                 };
 
-                // Sparar allt inklusive nya widgets
                 const saveTemplate = async () => {
                     if (!user) {
                         alert("Logga in med Google först för att spara mallar!");
@@ -446,7 +449,6 @@
                     }
                 };
 
-                // Återställning av mall
                 const loadTemplate = (tmpl) => {
                     if (tmpl.bg) setBg(tmpl.bg);
                     
@@ -479,6 +481,7 @@
                     if (tmpl.exitTicketActive !== undefined) setExitTicketActive(tmpl.exitTicketActive);
                     
                     setSelectedWidgetKey(null);
+                    setSelectedStickerId(null);
                     setShowCloudMenu(false);
                 };
 
@@ -489,7 +492,10 @@
                 };
 
                 const addSticker = (emoji) => {
-                    setStickers(prev => [...prev, { id: Date.now(), emoji, x: window.innerWidth / 2 - 40, y: window.innerHeight / 2 - 40 }]);
+                    const newId = Date.now();
+                    setStickers(prev => [...prev, { id: newId, emoji, x: window.innerWidth / 2 - 40, y: window.innerHeight / 2 - 40 }]);
+                    setSelectedStickerId(newId);
+                    setSelectedWidgetKey(null);
                     setShowStickerMenu(false);
                 };
 
@@ -507,6 +513,7 @@
                     setCheckInActive(false);
                     setExitTicketActive(false);
                     setSelectedWidgetKey(null);
+                    setSelectedStickerId(null);
                 };
 
                 const stickerCategories = {
@@ -518,7 +525,6 @@
                     "Sommar & Sol": ['☀️','🏖️','🍦','🍉','🌻','😎']
                 };
 
-                // Profilfärger från Täby Parkskolans grafiska profil
                 const schoolColors = [
                     { name: 'Vit', hex: '#FFFFFF', dark: false },
                     { name: 'Grön', hex: '#6F8166', dark: true },
@@ -541,9 +547,10 @@
                     <div 
                         className="w-screen h-screen overflow-hidden relative select-none"
                         onClick={(e) => {
-                            // Klick på bakgrunden avmarkerar och aktiverar presentationsläge
+                            // Klick på bakgrunden avmarkerar allt (både widgets och stickers) -> rent presentationsläge
                             if (e.target === e.currentTarget || e.target.classList.contains('bg-image')) {
                                 setSelectedWidgetKey(null);
+                                setSelectedStickerId(null);
                             }
                         }}
                     >
@@ -557,7 +564,7 @@
                         {/* Toppmeny */}
                         <header className="absolute top-0 w-full p-4 flex justify-between items-center bg-white/80 backdrop-blur-md shadow-sm z-30">
                             <h1 className="text-xl font-bold text-slate-800 flex items-center gap-2">
-                                <span className="text-2xl">🏫</span> Täby Parkskärm
+                                <span className="text-2xl">🏫</span> Klassrumsskärm
                             </h1>
                             <div className="flex gap-2">
                                 <button onClick={() => setShowCloudMenu(!showCloudMenu)} className="px-3.5 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl font-semibold text-sm transition-all shadow-sm">
@@ -653,79 +660,81 @@
                             </div>
                         )}
 
-                        {/* STICKERS (Alltid i högsta z-index) */}
+                        {/* STICKERS (Krysset visas endast när klistermärket är klickat) */}
                         {stickers.map(s => (
                             <Sticker 
                                 key={s.id} 
                                 sticker={s} 
+                                isSelected={selectedStickerId === s.id}
+                                onSelect={() => { setSelectedStickerId(s.id); setSelectedWidgetKey(null); }}
                                 onRemove={(id) => setStickers(prev => prev.filter(st => st.id !== id))} 
                                 onUpdatePos={updateStickerPos}
                             />
                         ))}
 
-                        {/* --- WIDGETS MED AUTOMATISKT PRESENTATIONSLÄGE --- */}
+                        {/* WIDGETS MED AUTOMATISKT PRESENTATIONSLÄGE */}
                         {widgets.clock && (
-                            <WidgetWrapper title="🕒 Klocka" widgetKey="clock" isSelected={selectedWidgetKey === 'clock'} onSelect={() => setSelectedWidgetKey('clock')} layout={widgetLayout.clock} onUpdateLayout={(d) => updateLayout('clock', d)} onClose={() => toggleWidget('clock')}>
+                            <WidgetWrapper title="🕒 Klocka" widgetKey="clock" isSelected={selectedWidgetKey === 'clock'} onSelect={() => { setSelectedWidgetKey('clock'); setSelectedStickerId(null); }} layout={widgetLayout.clock} onUpdateLayout={(d) => updateLayout('clock', d)} onClose={() => toggleWidget('clock')}>
                                 <ClockWidgetContent />
                             </WidgetWrapper>
                         )}
 
                         {widgets.timer && (
-                            <WidgetWrapper title="⏱️ Digital Timer" widgetKey="timer" isSelected={selectedWidgetKey === 'timer'} onSelect={() => setSelectedWidgetKey('timer')} layout={widgetLayout.timer} onUpdateLayout={(d) => updateLayout('timer', d)} onClose={() => toggleWidget('timer')}>
+                            <WidgetWrapper title="⏱️ Digital Timer" widgetKey="timer" isSelected={selectedWidgetKey === 'timer'} onSelect={() => { setSelectedWidgetKey('timer'); setSelectedStickerId(null); }} layout={widgetLayout.timer} onUpdateLayout={(d) => updateLayout('timer', d)} onClose={() => toggleWidget('timer')}>
                                 <DigitalTimerContent seconds={timerSeconds} setSeconds={setTimerSeconds} />
                             </WidgetWrapper>
                         )}
 
                         {widgets.timetimer && (
-                            <WidgetWrapper title="⏳ Time Timer" widgetKey="timetimer" isSelected={selectedWidgetKey === 'timetimer'} onSelect={() => setSelectedWidgetKey('timetimer')} layout={widgetLayout.timetimer} onUpdateLayout={(d) => updateLayout('timetimer', d)} onClose={() => toggleWidget('timetimer')}>
+                            <WidgetWrapper title="⏳ Time Timer" widgetKey="timetimer" isSelected={selectedWidgetKey === 'timetimer'} onSelect={() => { setSelectedWidgetKey('timetimer'); setSelectedStickerId(null); }} layout={widgetLayout.timetimer} onUpdateLayout={(d) => updateLayout('timetimer', d)} onClose={() => toggleWidget('timetimer')}>
                                 <TimeTimerContent initialMins={timeTimerMinutes} setInitialMins={setTimeTimerMinutes} />
                             </WidgetWrapper>
                         )}
 
                         {widgets.bildstod && (
-                            <WidgetWrapper title="👂 Bildstöd" widgetKey="bildstod" isSelected={selectedWidgetKey === 'bildstod'} onSelect={() => setSelectedWidgetKey('bildstod')} layout={widgetLayout.bildstod} onUpdateLayout={(d) => updateLayout('bildstod', d)} onClose={() => toggleWidget('bildstod')}>
+                            <WidgetWrapper title="👂 Bildstöd" widgetKey="bildstod" isSelected={selectedWidgetKey === 'bildstod'} onSelect={() => { setSelectedWidgetKey('bildstod'); setSelectedStickerId(null); }} layout={widgetLayout.bildstod} onUpdateLayout={(d) => updateLayout('bildstod', d)} onClose={() => toggleWidget('bildstod')}>
                                 <BildstodContent data={bildstodData} setData={setBildstodData} isSelected={selectedWidgetKey === 'bildstod'} />
                             </WidgetWrapper>
                         )}
 
                         {widgets.youtube && (
-                            <WidgetWrapper title="▶️ YouTube-video" widgetKey="youtube" isSelected={selectedWidgetKey === 'youtube'} onSelect={() => setSelectedWidgetKey('youtube')} layout={widgetLayout.youtube} onUpdateLayout={(d) => updateLayout('youtube', d)} onClose={() => toggleWidget('youtube')}>
+                            <WidgetWrapper title="▶️ YouTube-video" widgetKey="youtube" isSelected={selectedWidgetKey === 'youtube'} onSelect={() => { setSelectedWidgetKey('youtube'); setSelectedStickerId(null); }} layout={widgetLayout.youtube} onUpdateLayout={(d) => updateLayout('youtube', d)} onClose={() => toggleWidget('youtube')}>
                                 <YouTubeContent url={youtubeUrl} setUrl={setYoutubeUrl} isSelected={selectedWidgetKey === 'youtube'} />
                             </WidgetWrapper>
                         )}
 
                         {widgets.agenda && (
-                            <WidgetWrapper title="📋 Agenda" widgetKey="agenda" isSelected={selectedWidgetKey === 'agenda'} onSelect={() => setSelectedWidgetKey('agenda')} layout={widgetLayout.agenda} onUpdateLayout={(d) => updateLayout('agenda', d)} onClose={() => toggleWidget('agenda')}>
+                            <WidgetWrapper title="📋 Agenda" widgetKey="agenda" isSelected={selectedWidgetKey === 'agenda'} onSelect={() => { setSelectedWidgetKey('agenda'); setSelectedStickerId(null); }} layout={widgetLayout.agenda} onUpdateLayout={(d) => updateLayout('agenda', d)} onClose={() => toggleWidget('agenda')}>
                                 <AgendaWidgetContent items={agendaItems} setItems={setAgendaItems} isSelected={selectedWidgetKey === 'agenda'} />
                             </WidgetWrapper>
                         )}
 
                         {widgets.notes && (
-                            <WidgetWrapper title="📝 Anteckningar" widgetKey="notes" isSelected={selectedWidgetKey === 'notes'} onSelect={() => setSelectedWidgetKey('notes')} layout={widgetLayout.notes} onUpdateLayout={(d) => updateLayout('notes', d)} onClose={() => toggleWidget('notes')}>
+                            <WidgetWrapper title="📝 Anteckningar" widgetKey="notes" isSelected={selectedWidgetKey === 'notes'} onSelect={() => { setSelectedWidgetKey('notes'); setSelectedStickerId(null); }} layout={widgetLayout.notes} onUpdateLayout={(d) => updateLayout('notes', d)} onClose={() => toggleWidget('notes')}>
                                 <NotesWidgetContent text={notesText} setText={setNotesText} />
                             </WidgetWrapper>
                         )}
 
                         {widgets.dice && (
-                            <WidgetWrapper title="🎲 Tärning" widgetKey="dice" isSelected={selectedWidgetKey === 'dice'} onSelect={() => setSelectedWidgetKey('dice')} layout={widgetLayout.dice} onUpdateLayout={(d) => updateLayout('dice', d)} onClose={() => toggleWidget('dice')}>
+                            <WidgetWrapper title="🎲 Tärning" widgetKey="dice" isSelected={selectedWidgetKey === 'dice'} onSelect={() => { setSelectedWidgetKey('dice'); setSelectedStickerId(null); }} layout={widgetLayout.dice} onUpdateLayout={(d) => updateLayout('dice', d)} onClose={() => toggleWidget('dice')}>
                                 <DiceWidgetContent />
                             </WidgetWrapper>
                         )}
 
                         {widgets.workformat && (
-                            <WidgetWrapper title="🤫 Arbetsform" widgetKey="workformat" isSelected={selectedWidgetKey === 'workformat'} onSelect={() => setSelectedWidgetKey('workformat')} layout={widgetLayout.workformat} onUpdateLayout={(d) => updateLayout('workformat', d)} onClose={() => toggleWidget('workformat')}>
+                            <WidgetWrapper title="🤫 Arbetsform" widgetKey="workformat" isSelected={selectedWidgetKey === 'workformat'} onSelect={() => { setSelectedWidgetKey('workformat'); setSelectedStickerId(null); }} layout={widgetLayout.workformat} onUpdateLayout={(d) => updateLayout('workformat', d)} onClose={() => toggleWidget('workformat')}>
                                 <WorkFormatWidgetContent activeIdx={workFormatIdx} setActiveIdx={setWorkFormatIdx} isSelected={selectedWidgetKey === 'workformat'} />
                             </WidgetWrapper>
                         )}
 
                         {widgets.randomizer && (
-                            <WidgetWrapper title="🎯 Slumpa elev" widgetKey="randomizer" isSelected={selectedWidgetKey === 'randomizer'} onSelect={() => setSelectedWidgetKey('randomizer')} layout={widgetLayout.randomizer} onUpdateLayout={(d) => updateLayout('randomizer', d)} onClose={() => toggleWidget('randomizer')}>
+                            <WidgetWrapper title="🎯 Slumpa elev" widgetKey="randomizer" isSelected={selectedWidgetKey === 'randomizer'} onSelect={() => { setSelectedWidgetKey('randomizer'); setSelectedStickerId(null); }} layout={widgetLayout.randomizer} onUpdateLayout={(d) => updateLayout('randomizer', d)} onClose={() => toggleWidget('randomizer')}>
                                 <RandomizerWidgetContent namesText={namesList} setNamesText={setNamesList} chosen={randomizerChosen} setChosen={setRandomizerChosen} isSelected={selectedWidgetKey === 'randomizer'} />
                             </WidgetWrapper>
                         )}
 
                         {widgets.group && (
-                            <WidgetWrapper title="👥 Gruppskapare" widgetKey="group" isSelected={selectedWidgetKey === 'group'} onSelect={() => setSelectedWidgetKey('group')} layout={widgetLayout.group} onUpdateLayout={(d) => updateLayout('group', d)} onClose={() => toggleWidget('group')}>
+                            <WidgetWrapper title="👥 Gruppskapare" widgetKey="group" isSelected={selectedWidgetKey === 'group'} onSelect={() => { setSelectedWidgetKey('group'); setSelectedStickerId(null); }} layout={widgetLayout.group} onUpdateLayout={(d) => updateLayout('group', d)} onClose={() => toggleWidget('group')}>
                                 <GroupMakerWidgetContent 
                                     names={namesList} 
                                     setNames={setNamesList} 
@@ -739,7 +748,7 @@
                         )}
 
                         {widgets.checkin && (
-                            <WidgetWrapper title="😊 Incheckning" widgetKey="checkin" isSelected={selectedWidgetKey === 'checkin'} onSelect={() => setSelectedWidgetKey('checkin')} layout={widgetLayout.checkin} onUpdateLayout={(d) => updateLayout('checkin', d)} onClose={() => toggleWidget('checkin')}>
+                            <WidgetWrapper title="😊 Incheckning" widgetKey="checkin" isSelected={selectedWidgetKey === 'checkin'} onSelect={() => { setSelectedWidgetKey('checkin'); setSelectedStickerId(null); }} layout={widgetLayout.checkin} onUpdateLayout={(d) => updateLayout('checkin', d)} onClose={() => toggleWidget('checkin')}>
                                 <CheckInWidgetContent 
                                     boardId={boardIdRef.current} 
                                     baseUrl={baseUrl} 
@@ -753,7 +762,7 @@
                         )}
 
                         {widgets.exitticket && (
-                            <WidgetWrapper title="📌 Exit Ticket" widgetKey="exitticket" isSelected={selectedWidgetKey === 'exitticket'} onSelect={() => setSelectedWidgetKey('exitticket')} layout={widgetLayout.exitticket} onUpdateLayout={(d) => updateLayout('exitticket', d)} onClose={() => toggleWidget('exitticket')}>
+                            <WidgetWrapper title="📌 Exit Ticket" widgetKey="exitticket" isSelected={selectedWidgetKey === 'exitticket'} onSelect={() => { setSelectedWidgetKey('exitticket'); setSelectedStickerId(null); }} layout={widgetLayout.exitticket} onUpdateLayout={(d) => updateLayout('exitticket', d)} onClose={() => toggleWidget('exitticket')}>
                                 <ExitTicketWidgetContent 
                                     boardId={boardIdRef.current} 
                                     baseUrl={baseUrl} 
@@ -811,32 +820,38 @@
                 );
             };
 
-            // Diskret sticker
-            const Sticker = ({ sticker, onRemove, onUpdatePos }) => {
+            // Diskret sticker: Krysset visas ENBART vid klick/markering
+            const Sticker = ({ sticker, isSelected, onSelect, onRemove, onUpdatePos }) => {
                 const [pos, handleDrag] = useDraggable(
                     { x: sticker.x, y: sticker.y },
                     (newPos) => onUpdatePos && onUpdatePos(sticker.id, newPos)
                 );
 
                 return (
-                    <div className="sticker group" style={{ left: pos.x, top: pos.y }}>
+                    <div 
+                        className="sticker" 
+                        style={{ left: pos.x, top: pos.y }}
+                        onClick={(e) => { e.stopPropagation(); onSelect(); }}
+                    >
                         <div 
                             onMouseDown={handleDrag} 
                             onTouchStart={handleDrag} 
-                            className="cursor-grab active:cursor-grabbing select-none drop-shadow-md text-[64px] leading-none">
+                            className={`cursor-grab active:cursor-grabbing select-none drop-shadow-md text-[64px] leading-none transition-all ${isSelected ? 'ring-2 ring-[#6F8166] ring-offset-2 rounded-2xl scale-105' : ''}`}>
                             {sticker.emoji}
                         </div>
-                        <button 
-                            onClick={(e) => { e.stopPropagation(); onRemove(sticker.id); }} 
-                            title="Ta bort"
-                            className="absolute -top-1 -right-1 bg-white/60 hover:bg-rose-500 hover:text-white text-slate-400 rounded-full w-5 h-5 flex items-center justify-center text-[10px] font-bold shadow-sm border border-slate-200 transition-all opacity-40 hover:opacity-100 z-50">
-                            ✕
-                        </button>
+                        {isSelected && (
+                            <button 
+                                onClick={(e) => { e.stopPropagation(); onRemove(sticker.id); }} 
+                                title="Ta bort"
+                                className="absolute -top-2 -right-2 bg-rose-500 hover:bg-rose-600 text-white rounded-full w-6 h-6 flex items-center justify-center text-xs font-bold shadow-md border-2 border-white transition-all z-50">
+                                ✕
+                            </button>
+                        )}
                     </div>
                 );
             };
 
-            // Smart Fönsterram: Visar ram och reglage när vald, rent presentationsläge när man klickar bredvid
+            // Fönsterram med presentationsläge
             const WidgetWrapper = ({ title, widgetKey, isSelected, onSelect, onClose, layout, onUpdateLayout, children }) => {
                 const [size, setSize] = useState({ w: layout?.w || 320, h: layout?.h || 320 });
 
@@ -893,7 +908,6 @@
                             if (!isSelected) onSelect();
                         }}
                     >
-                        {/* Rubrik & Flytthandtag visas endast när widgeten är markerad */}
                         {isSelected && (
                             <div className="widget-header" onMouseDown={handleDrag} onTouchStart={handleDrag}>
                                 <div className="flex items-center gap-2">
@@ -909,7 +923,6 @@
                             {children}
                         </div>
 
-                        {/* Storlekshandtag visas endast när widgeten är markerad */}
                         {isSelected && (
                             <div className="resize-handle" onMouseDown={handleResize} onTouchStart={handleResize}>⌟</div>
                         )}
@@ -936,7 +949,7 @@
                 );
             };
 
-            // 2. Digital Timer (Klassvy-stil)
+            // 2. Digital Timer
             const DigitalTimerContent = ({ seconds, setSeconds }) => {
                 const [timeLeft, setTimeLeft] = useState(seconds || 300);
                 const [isRunning, setIsRunning] = useState(false);
@@ -988,7 +1001,7 @@
                 );
             };
 
-            // 3. Time Timer (Analog Urtavla med röd skiva)
+            // 3. Time Timer (Analog urtavla)
             const TimeTimerContent = ({ initialMins, setInitialMins }) => {
                 const [totalSeconds, setTotalSeconds] = useState((initialMins || 15) * 60);
                 const [timeLeft, setTimeLeft] = useState(totalSeconds);
@@ -1011,8 +1024,6 @@
                     return () => clearInterval(int);
                 }, [isRunning, timeLeft]);
 
-                const minsLeft = Math.ceil(timeLeft / 60);
-                // Procent av 60 minuter för Time Timer-skivan
                 const fractionOf60 = Math.min(1, timeLeft / 3600);
                 const degrees = fractionOf60 * 360;
 
@@ -1026,9 +1037,7 @@
 
                 return (
                     <div className="flex flex-col items-center justify-between h-full py-1">
-                        {/* Analog Time Timer urtavla */}
                         <div className="relative w-44 h-44 rounded-full border-4 border-slate-700 bg-white flex items-center justify-center shadow-inner my-1">
-                            {/* Ticks 0..60 */}
                             {[0, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55].map((val, i) => {
                                 const angle = (i * 30);
                                 return (
@@ -1038,14 +1047,12 @@
                                 );
                             })}
                             
-                            {/* Röd Time Timer skiva */}
                             <div 
                                 className="w-32 h-32 rounded-full transition-all duration-1000" 
                                 style={{ 
                                     background: `conic-gradient(#ef4444 0deg, #ef4444 ${degrees}deg, #f1f5f9 ${degrees}deg, #f1f5f9 360deg)` 
                                 }}
                             />
-                            {/* Mittenpunkt */}
                             <div className="absolute w-3 h-3 rounded-full bg-slate-800 z-10 shadow"></div>
                         </div>
 
@@ -1067,7 +1074,7 @@
                 );
             };
 
-            // 4. Bildstöd (Klassvy-stil)
+            // 4. Bildstöd
             const BildstodContent = ({ data, setData, isSelected }) => {
                 const [isEditing, setIsEditing] = useState(false);
 
