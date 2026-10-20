@@ -279,7 +279,7 @@
                 timetimer: { x: 50, y: 280, w: 290, h: 360 },
                 bildstod: { x: 360, y: 300, w: 320, h: 340 },
                 youtube: { x: 700, y: 80, w: 460, h: 330 },
-                agenda: { x: 50, y: 280, w: 340, h: 440 },
+                agenda: { x: 50, y: 280, w: 360, h: 460 },
                 notes: { x: 700, y: 430, w: 380, h: 260 },
                 dice: { x: 400, y: 460, w: 280, h: 320 },
                 workformat: { x: 700, y: 400, w: 330, h: 360 },
@@ -312,7 +312,7 @@
                 const [selectedWidgetKey, setSelectedWidgetKey] = useState(null);
                 const [selectedStickerId, setSelectedStickerId] = useState(null);
 
-                // Nuvarande laddad mall (för att skriva över eller spara som ny)
+                // Nuvarande mall
                 const [currentLoadedTemplate, setCurrentLoadedTemplate] = useState(null);
 
                 // Innehåll och data
@@ -419,7 +419,7 @@
                     reader.readAsDataURL(file);
                 };
 
-                // SPARA MALL: Välj mellan att skriva över eller spara som nytt namn
+                // SPARA MALL: Skriv över eller spara som ny
                 const saveTemplate = async () => {
                     if (!user) {
                         alert("Logga in med Google först för att spara mallar!");
@@ -506,7 +506,6 @@
                     if (tmpl.stickers) setStickers(tmpl.stickers); else setStickers([]);
                     
                     if (tmpl.agendaItems) {
-                        // Säkerställ att checkbox/done-status finns
                         setAgendaItems(tmpl.agendaItems.map((item, idx) => ({
                             id: item.id || Date.now() + idx,
                             icon: item.icon || '📋',
@@ -728,7 +727,7 @@
                             </div>
                         )}
 
-                        {/* STICKERS (Ställbar storlek med handtag) */}
+                        {/* STICKERS */}
                         {stickers.map(s => (
                             <Sticker 
                                 key={s.id} 
@@ -741,7 +740,7 @@
                             />
                         ))}
 
-                        {/* WIDGETS MED AUTOMATISKT PRESENTATIONSLÄGE OCH SKALNING */}
+                        {/* WIDGETS MED PRESENTATIONSLÄGE OCH SKALNING */}
                         {widgets.clock && (
                             <WidgetWrapper title="🕒 Klocka" widgetKey="clock" isSelected={selectedWidgetKey === 'clock'} onSelect={() => { setSelectedWidgetKey('clock'); setSelectedStickerId(null); }} layout={widgetLayout.clock} onUpdateLayout={(d) => updateLayout('clock', d)} onClose={() => toggleWidget('clock')}>
                                 {({ size }) => <ClockWidgetContent size={size} />}
@@ -898,7 +897,7 @@
                 );
             };
 
-            // Diskret sticker: Skalbar storlek & krysset visas enbart vid klick
+            // Diskret sticker med ställbar storlek
             const Sticker = ({ sticker, isSelected, onSelect, onRemove, onUpdatePos, onUpdateSize }) => {
                 const currentSize = sticker.size || 72;
                 const [pos, handleDrag] = useDraggable(
@@ -964,7 +963,7 @@
                 );
             };
 
-            // Fönsterram med presentationsläge och storleksöverföring
+            // Fönsterram
             const WidgetWrapper = ({ title, widgetKey, isSelected, onSelect, onClose, layout, onUpdateLayout, children }) => {
                 const [size, setSize] = useState({ w: layout?.w || 320, h: layout?.h || 320 });
 
@@ -1043,7 +1042,7 @@
                 );
             };
 
-            // 1. Klocka med proportionell textskalning
+            // 1. Klocka
             const ClockWidgetContent = ({ size }) => {
                 const [time, setTime] = useState(new Date());
                 useEffect(() => {
@@ -1069,7 +1068,7 @@
                 );
             };
 
-            // 2. Digital Timer med proportionell skalning
+            // 2. Digital Timer
             const DigitalTimerContent = ({ size, seconds, setSeconds }) => {
                 const [timeLeft, setTimeLeft] = useState(seconds || 300);
                 const [isRunning, setIsRunning] = useState(false);
@@ -1125,7 +1124,7 @@
                 );
             };
 
-            // 3. Time Timer med skalbar urtavla
+            // 3. Time Timer
             const TimeTimerContent = ({ size, initialMins, setInitialMins }) => {
                 const [totalSeconds, setTotalSeconds] = useState((initialMins || 15) * 60);
                 const [timeLeft, setTimeLeft] = useState(totalSeconds);
@@ -1208,7 +1207,7 @@
                 );
             };
 
-            // 4. Bildstöd med proportionell skalning
+            // 4. Bildstöd
             const BildstodContent = ({ size, data, setData, isSelected }) => {
                 const [isEditing, setIsEditing] = useState(false);
 
@@ -1353,7 +1352,7 @@
                 );
             };
 
-            // 6. Agenda med Checkboxar, Drag & Drop-ordning och Direktredigering
+            // 6. Agenda: Dynamisk text- och elementskalning vid drag
             const AgendaWidgetContent = ({ size, items, setItems, isSelected }) => {
                 const iconList = ['📋', '📖', '✍️', '🗣️', '👥', '💻', '📐', '🎨', '🧪', '🎧', '🔔', '⭐', '🏃', '🥪', '❓'];
                 const [newItem, setNewItem] = useState('');
@@ -1380,7 +1379,16 @@
                     setItems(next);
                 };
 
-                const scale = Math.max(0.7, Math.min((size?.w || 340) / 340, (size?.h || 440) / 440));
+                // Skalar proportionellt och tydligt mot ytans storlek
+                const widthFactor = (size?.w || 360) / 360;
+                const heightFactor = (size?.h || 460) / 460;
+                const scale = Math.max(0.85, Math.min(3.2, Math.max(widthFactor, heightFactor * 0.9)));
+
+                const fontSize = Math.round(16 * scale);
+                const iconSize = Math.round(24 * scale);
+                const checkSize = Math.round(22 * scale);
+                const itemPadding = Math.round(8 * scale);
+                const itemGap = Math.round(10 * scale);
 
                 return (
                     <div className="flex flex-col h-full relative">
@@ -1397,34 +1405,46 @@
                                             setDraggedIdx(null);
                                         }
                                     }}
-                                    className={`flex items-center gap-2 p-2 rounded-xl border transition-all ${item.done ? 'bg-emerald-50/70 border-emerald-200' : 'bg-slate-50 border-slate-100 shadow-sm'}`}
+                                    style={{ padding: `${itemPadding}px`, gap: `${itemGap}px` }}
+                                    className={`flex items-center rounded-2xl border transition-all ${item.done ? 'bg-emerald-50/70 border-emerald-200' : 'bg-slate-50 border-slate-100 shadow-sm'}`}
                                 >
                                     {/* Flytthandtag vid markering */}
                                     {isSelected && (
                                         <div className="flex items-center gap-0.5 text-slate-400">
-                                            <span className="cursor-grab active:cursor-grabbing text-xs px-0.5" title="Dra för att ändra ordning">☰</span>
-                                            <div className="flex flex-col text-[8px] leading-tight">
+                                            <span style={{ fontSize: `${Math.max(12, Math.round(14 * scale * 0.8))}px` }} className="cursor-grab active:cursor-grabbing px-0.5 select-none" title="Dra för att ändra ordning">☰</span>
+                                            <div className="flex flex-col leading-none" style={{ fontSize: `${Math.max(9, Math.round(10 * scale * 0.8))}px` }}>
                                                 <button onClick={() => moveItem(i, i - 1)} disabled={i === 0} className="hover:text-slate-700 disabled:opacity-20">▲</button>
                                                 <button onClick={() => moveItem(i, i + 1)} disabled={i === items.length - 1} className="hover:text-slate-700 disabled:opacity-20">▼</button>
                                             </div>
                                         </div>
                                     )}
 
-                                    {/* Checkbox */}
+                                    {/* Checkbox som skalar */}
                                     <button 
                                         onClick={() => toggleDone(i)} 
-                                        className={`w-5 h-5 rounded-md flex items-center justify-center border transition-all ${item.done ? 'bg-[#6F8166] border-[#6F8166] text-white font-bold text-xs' : 'border-slate-300 hover:border-slate-500 bg-white'}`}
+                                        style={{ 
+                                            width: `${checkSize}px`, 
+                                            height: `${checkSize}px`, 
+                                            minWidth: `${checkSize}px`,
+                                            minHeight: `${checkSize}px`,
+                                            fontSize: `${Math.round(checkSize * 0.65)}px` 
+                                        }}
+                                        className={`rounded-lg flex items-center justify-center border transition-all ${item.done ? 'bg-[#6F8166] border-[#6F8166] text-white font-bold' : 'border-slate-300 hover:border-slate-500 bg-white'}`}
                                         title={item.done ? "Markera som ej klar" : "Markera som klar"}
                                     >
                                         {item.done && '✓'}
                                     </button>
 
-                                    {/* Symbol */}
-                                    <button onClick={() => cycleIcon(i)} title="Klicka för att byta symbol" className="text-xl hover:scale-110 transition-transform">
+                                    {/* Symbol som skalar */}
+                                    <button 
+                                        onClick={() => cycleIcon(i)} 
+                                        title="Klicka för att byta symbol" 
+                                        style={{ fontSize: `${iconSize}px` }}
+                                        className="hover:scale-110 transition-transform leading-none flex items-center justify-center">
                                         {item.icon}
                                     </button>
 
-                                    {/* Text / Direktredigering */}
+                                    {/* Text / Input med skalad textstorlek */}
                                     {isSelected ? (
                                         <input 
                                             type="text" 
@@ -1433,13 +1453,14 @@
                                                 const val = e.target.value;
                                                 setItems(items.map((it, idx) => idx === i ? { ...it, text: val } : it));
                                             }}
-                                            className={`flex-1 bg-white border border-slate-200 px-2 py-0.5 rounded-lg text-sm font-semibold outline-none focus:border-[#6F8166] ${item.done ? 'line-through text-slate-400' : 'text-slate-800'}`}
+                                            style={{ fontSize: `${fontSize}px` }}
+                                            className={`flex-1 bg-white border border-slate-200 px-2 py-1 rounded-xl font-semibold outline-none focus:border-[#6F8166] ${item.done ? 'line-through text-slate-400' : 'text-slate-800'}`}
                                         />
                                     ) : (
                                         <span 
                                             onClick={() => toggleDone(i)} 
-                                            style={{ fontSize: `${Math.round(14 * scale)}px` }}
-                                            className={`flex-1 font-semibold cursor-pointer truncate ${item.done ? 'line-through text-slate-400' : 'text-slate-800'}`}>
+                                            style={{ fontSize: `${fontSize}px` }}
+                                            className={`flex-1 font-semibold cursor-pointer leading-snug break-words ${item.done ? 'line-through text-slate-400' : 'text-slate-800'}`}>
                                             {item.text}
                                         </span>
                                     )}
@@ -1453,7 +1474,12 @@
 
                         {isSelected && (
                             <div className="absolute bottom-0 left-0 right-0 flex gap-1.5 bg-white pt-2 border-t mt-1">
-                                <select value={icon} onChange={e => setIcon(e.target.value)} className="bg-slate-100 p-1.5 rounded-lg border text-lg outline-none">
+                                <select 
+                                    value={icon} 
+                                    onChange={e => setIcon(e.target.value)} 
+                                    style={{ fontSize: `${Math.max(16, Math.round(18 * scale * 0.8))}px` }}
+                                    className="bg-slate-100 p-1.5 rounded-xl border outline-none"
+                                >
                                     {iconList.map(ic => <option key={ic} value={ic}>{ic}</option>)}
                                 </select>
                                 <input 
@@ -1465,7 +1491,8 @@
                                             setNewItem('');
                                         }
                                     }} 
-                                    className="flex-1 p-1.5 border rounded-lg text-xs outline-none" 
+                                    style={{ fontSize: `${Math.max(12, Math.round(14 * scale * 0.8))}px` }}
+                                    className="flex-1 p-2 border rounded-xl outline-none focus:border-[#6F8166]" 
                                     placeholder="Ny aktivitet..." 
                                 />
                             </div>
@@ -1474,7 +1501,7 @@
                 );
             };
 
-            // 7. Anteckningar med proportionell skalning
+            // 7. Anteckningar
             const NotesWidgetContent = ({ size, text, setText }) => {
                 const scale = Math.max(0.8, Math.min((size?.w || 380) / 380, (size?.h || 260) / 260));
                 return (
@@ -1487,7 +1514,7 @@
                 );
             };
 
-            // 8. Tärning med proportionell skalning
+            // 8. Tärning
             const Die = ({ val, rolling, size }) => {
                 const dots = { 1: [4], 2: [2, 6], 3: [2, 4, 6], 4: [0, 2, 6, 8], 5: [0, 2, 4, 6, 8], 6: [0, 2, 3, 5, 6, 8] }[val] || [4];
                 return (
@@ -1541,7 +1568,7 @@
                 );
             };
 
-            // 9. Arbetsform med proportionell skalning
+            // 9. Arbetsform
             const WorkFormatWidgetContent = ({ size, activeIdx, setActiveIdx, isSelected }) => {
                 const formats = [
                     { icon: '🤫', title: 'Tyst arbete', sub: 'Fokusera & arbeta självständigt', color: 'from-blue-600 to-indigo-700' },
@@ -1668,7 +1695,7 @@
                 );
             };
 
-            // 12. Incheckning med proportionell QR-kod
+            // 12. Incheckning
             const CheckInWidgetContent = ({ size, boardId, baseUrl, question, setQuestion, active, setActive, isSelected }) => {
                 const [counts, setCounts] = useState({'🤩':0, '🙂':0, '😐':0, '😔':0});
 
@@ -1729,7 +1756,7 @@
                 );
             };
 
-            // 13. Exit Ticket med proportionell QR-kod
+            // 13. Exit Ticket
             const ExitTicketWidgetContent = ({ size, boardId, baseUrl, question, setQuestion, active, setActive, isSelected }) => {
                 const [tickets, setTickets] = useState([]);
 
