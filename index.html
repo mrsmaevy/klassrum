@@ -897,7 +897,462 @@
                 );
             };
 
-            // Innehållskomponenter (Agenda med shrink-0 och min-w-0 för papperskorgen)
+            // Diskret sticker med ställbar storlek
+            const Sticker = ({ sticker, isSelected, onSelect, onRemove, onUpdatePos, onUpdateSize }) => {
+                const currentSize = sticker.size || 72;
+                const [pos, handleDrag] = useDraggable(
+                    { x: sticker.x, y: sticker.y },
+                    (newPos) => onUpdatePos && onUpdatePos(sticker.id, newPos)
+                );
+
+                const handleResizeSticker = (e) => {
+                    e.stopPropagation();
+                    const startX = e.clientX || (e.touches && e.touches[0].clientX);
+                    const startSize = currentSize;
+
+                    const onMove = (moveE) => {
+                        const curX = moveE.clientX || (moveE.touches && moveE.touches[0].clientX);
+                        const delta = curX - startX;
+                        onUpdateSize(sticker.id, startSize + delta);
+                    };
+
+                    const onEnd = () => {
+                        document.removeEventListener('mousemove', onMove);
+                        document.removeEventListener('mouseup', onEnd);
+                        document.removeEventListener('touchmove', onMove);
+                        document.removeEventListener('touchend', onEnd);
+                    };
+
+                    document.addEventListener('mousemove', onMove);
+                    document.addEventListener('mouseup', onEnd);
+                    document.addEventListener('touchmove', onMove, { passive: false });
+                    document.addEventListener('touchend', onEnd);
+                };
+
+                return (
+                    <div 
+                        className="sticker" 
+                        style={{ left: pos.x, top: pos.y, width: currentSize, height: currentSize }}
+                        onClick={(e) => { e.stopPropagation(); onSelect(); }}
+                    >
+                        <div 
+                            onMouseDown={handleDrag} 
+                            onTouchStart={handleDrag} 
+                            style={{ fontSize: `${currentSize * 0.9}px` }}
+                            className={`cursor-grab active:cursor-grabbing select-none drop-shadow-md leading-none flex items-center justify-center w-full h-full transition-transform ${isSelected ? 'ring-2 ring-[#6F8166] ring-offset-2 rounded-2xl' : ''}`}>
+                            {sticker.emoji}
+                        </div>
+                        {isSelected && (
+                            <>
+                                <button 
+                                    onClick={(e) => { e.stopPropagation(); onRemove(sticker.id); }} 
+                                    title="Ta bort"
+                                    className="absolute -top-2 -right-2 bg-rose-500 hover:bg-rose-600 text-white rounded-full w-6 h-6 flex items-center justify-center text-xs font-bold shadow-md border-2 border-white transition-all z-50">
+                                    ✕
+                                </button>
+                                <div 
+                                    onMouseDown={handleResizeSticker} 
+                                    onTouchStart={handleResizeSticker}
+                                    title="Dra för att ändra storlek"
+                                    className="absolute -bottom-2 -right-2 bg-white text-[#6F8166] border border-[#6F8166] rounded-full w-6 h-6 flex items-center justify-center text-[10px] font-bold shadow-md cursor-nwse-resize z-50">
+                                    ⌟
+                                </div>
+                            </>
+                        )}
+                    </div>
+                );
+            };
+
+            // Fönsterram
+            const WidgetWrapper = ({ title, widgetKey, isSelected, onSelect, onClose, layout, onUpdateLayout, children }) => {
+                const [size, setSize] = useState({ w: layout?.w || 320, h: layout?.h || 320 });
+
+                useEffect(() => {
+                    if (layout?.w && layout?.h) {
+                        setSize({ w: layout.w, h: layout.h });
+                    }
+                }, [layout?.w, layout?.h]);
+
+                const [pos, handleDrag] = useDraggable(
+                    { x: layout?.x || 100, y: layout?.y || 100 },
+                    (newPos) => onUpdateLayout && onUpdateLayout({ x: newPos.x, y: newPos.y })
+                );
+
+                const handleResize = (e) => {
+                    e.stopPropagation();
+                    const startX = e.clientX || (e.touches && e.touches[0].clientX);
+                    const startY = e.clientY || (e.touches && e.touches[0].clientY);
+                    const startW = size.w;
+                    const startH = size.h;
+                    let newSize = { w: startW, h: startH };
+
+                    const onMove = (moveE) => {
+                        if (moveE.cancelable) moveE.preventDefault();
+                        const curX = moveE.clientX || (moveE.touches && moveE.touches[0].clientX);
+                        const curY = moveE.clientY || (moveE.touches && moveE.touches[0].clientY);
+                        newSize = {
+                            w: Math.max(200, startW + (curX - startX)),
+                            h: Math.max(140, startH + (curY - startY))
+                        };
+                        setSize(newSize);
+                    };
+
+                    const onEnd = () => {
+                        document.removeEventListener('mousemove', onMove);
+                        document.removeEventListener('mouseup', onEnd);
+                        document.removeEventListener('touchmove', onMove);
+                        document.removeEventListener('touchend', onEnd);
+                        if (onUpdateLayout) onUpdateLayout({ w: newSize.w, h: newSize.h });
+                    };
+
+                    document.addEventListener('mousemove', onMove);
+                    document.addEventListener('mouseup', onEnd);
+                    document.addEventListener('touchmove', onMove, { passive: false });
+                    document.addEventListener('touchend', onEnd);
+                };
+
+                return (
+                    <div 
+                        className={`widget ${isSelected ? 'widget-selected z-20' : 'widget-clean z-10'}`} 
+                        style={{ left: pos.x, top: pos.y, width: size.w, height: size.h }}
+                        onClick={(e) => {
+                            e.stopPropagation();
+                            if (!isSelected) onSelect();
+                        }}
+                    >
+                        {isSelected && (
+                            <div className="widget-header" onMouseDown={handleDrag} onTouchStart={handleDrag}>
+                                <div className="flex items-center gap-2">
+                                    <span className="w-2 h-2 rounded-full bg-[#6F8166]"></span>
+                                    <span>{title}</span>
+                                    <span className="text-[10px] text-slate-400 font-normal">Dra för att flytta</span>
+                                </div>
+                                <button onClick={(e) => { e.stopPropagation(); onClose(); }} className="text-slate-400 hover:text-rose-500 font-bold text-sm px-1">✕</button>
+                            </div>
+                        )}
+
+                        <div className="flex-1 overflow-hidden relative bg-white p-3.5 flex flex-col">
+                            {typeof children === 'function' ? children({ size }) : children}
+                        </div>
+
+                        {isSelected && (
+                            <div className="resize-handle" onMouseDown={handleResize} onTouchStart={handleResize}>⌟</div>
+                        )}
+                    </div>
+                );
+            };
+
+            // 1. Klocka
+            const ClockWidgetContent = ({ size }) => {
+                const [time, setTime] = useState(new Date());
+                useEffect(() => {
+                    const timer = setInterval(() => setTime(new Date()), 1000);
+                    return () => clearInterval(timer);
+                }, []);
+
+                const scale = Math.max(0.6, Math.min((size?.w || 260) / 260, (size?.h || 180) / 180));
+
+                return (
+                    <div className="flex flex-col items-center justify-center h-full">
+                        <div 
+                            style={{ fontSize: `${Math.round(64 * scale)}px` }}
+                            className="leading-none font-extrabold tabular-nums tracking-tight text-slate-800 transition-all">
+                            {time.toLocaleTimeString('sv-SE', { hour: '2-digit', minute: '2-digit' })}
+                        </div>
+                        <div 
+                            style={{ fontSize: `${Math.max(10, Math.round(14 * scale))}px` }}
+                            className="text-slate-500 font-semibold mt-2 uppercase tracking-widest transition-all">
+                            {time.toLocaleDateString('sv-SE', { weekday: 'long', day: 'numeric', month: 'long' })}
+                        </div>
+                    </div>
+                );
+            };
+
+            // 2. Digital Timer
+            const DigitalTimerContent = ({ size, seconds, setSeconds }) => {
+                const [timeLeft, setTimeLeft] = useState(seconds || 300);
+                const [isRunning, setIsRunning] = useState(false);
+
+                useEffect(() => {
+                    setTimeLeft(seconds);
+                    setIsRunning(false);
+                }, [seconds]);
+
+                useEffect(() => {
+                    let int;
+                    if (isRunning && timeLeft > 0) {
+                        int = setInterval(() => setTimeLeft(t => t - 1), 1000);
+                    } else if (timeLeft === 0) {
+                        setIsRunning(false);
+                    }
+                    return () => clearInterval(int);
+                }, [isRunning, timeLeft]);
+
+                const m = Math.floor(timeLeft / 60).toString().padStart(2, '0');
+                const s = (timeLeft % 60).toString().padStart(2, '0');
+
+                const scale = Math.max(0.6, Math.min((size?.w || 280) / 280, (size?.h || 200) / 200));
+
+                const addMins = (mins) => {
+                    const next = Math.max(0, (seconds || 300) + mins * 60);
+                    setSeconds(next);
+                    setTimeLeft(next);
+                    setIsRunning(false);
+                };
+
+                return (
+                    <div className="flex flex-col items-center justify-between h-full py-1">
+                        <div 
+                            style={{ fontSize: `${Math.round(68 * scale)}px` }}
+                            className={`font-extrabold tabular-nums tracking-tight my-auto ${timeLeft === 0 ? 'text-rose-500 animate-pulse' : 'text-slate-800'}`}>
+                            {m}:{s}
+                        </div>
+                        <div className="flex gap-2 w-full mb-2">
+                            <button onClick={() => addMins(-1)} className="flex-1 bg-slate-100 hover:bg-slate-200 py-1.5 rounded-xl font-bold text-xs text-slate-600">- 1 min</button>
+                            <button onClick={() => addMins(1)} className="flex-1 bg-slate-100 hover:bg-slate-200 py-1.5 rounded-xl font-bold text-xs text-slate-600">+ 1 min</button>
+                            <button onClick={() => addMins(5)} className="flex-1 bg-slate-100 hover:bg-slate-200 py-1.5 rounded-xl font-bold text-xs text-slate-600">+ 5 min</button>
+                        </div>
+                        <div className="flex gap-2 w-full">
+                            <button onClick={() => setIsRunning(!isRunning)} className={`flex-1 py-2.5 rounded-xl font-bold text-sm text-white shadow-sm transition-all ${isRunning ? 'bg-amber-600 hover:bg-amber-700' : 'bg-[#6F8166] hover:bg-[#5b6b54]'}`}>
+                                {isRunning ? 'Paus' : 'Starta'}
+                            </button>
+                            <button onClick={() => { setIsRunning(false); setTimeLeft(seconds); }} className="px-4 py-2.5 bg-slate-100 hover:bg-slate-200 rounded-xl font-bold text-xs text-slate-600">
+                                Återställ
+                            </button>
+                        </div>
+                    </div>
+                );
+            };
+
+            // 3. Time Timer
+            const TimeTimerContent = ({ size, initialMins, setInitialMins }) => {
+                const [totalSeconds, setTotalSeconds] = useState((initialMins || 15) * 60);
+                const [timeLeft, setTimeLeft] = useState(totalSeconds);
+                const [isRunning, setIsRunning] = useState(false);
+
+                useEffect(() => {
+                    const sec = (initialMins || 15) * 60;
+                    setTotalSeconds(sec);
+                    setTimeLeft(sec);
+                    setIsRunning(false);
+                }, [initialMins]);
+
+                useEffect(() => {
+                    let int;
+                    if (isRunning && timeLeft > 0) {
+                        int = setInterval(() => setTimeLeft(t => t - 1), 1000);
+                    } else if (timeLeft === 0) {
+                        setIsRunning(false);
+                    }
+                    return () => clearInterval(int);
+                }, [isRunning, timeLeft]);
+
+                const fractionOf60 = Math.min(1, timeLeft / 3600);
+                const degrees = fractionOf60 * 360;
+
+                const m = Math.floor(timeLeft / 60).toString().padStart(2, '0');
+                const s = (timeLeft % 60).toString().padStart(2, '0');
+
+                const scale = Math.max(0.5, Math.min((size?.w || 290) / 290, ((size?.h || 360) - 90) / 230));
+                const outerDiameter = Math.round(180 * scale);
+                const innerDiameter = Math.round(136 * scale);
+
+                const changeMins = (delta) => {
+                    const next = Math.max(1, Math.min(60, (initialMins || 15) + delta));
+                    setInitialMins(next);
+                };
+
+                return (
+                    <div className="flex flex-col items-center justify-between h-full py-1">
+                        <div 
+                            style={{ width: `${outerDiameter}px`, height: `${outerDiameter}px` }}
+                            className="relative rounded-full border-4 border-slate-700 bg-white flex items-center justify-center shadow-inner my-auto transition-all">
+                            {[0, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55].map((val, i) => {
+                                const angle = (i * 30);
+                                return (
+                                    <div key={val} className="absolute inset-0 flex justify-center text-[9px] font-bold text-slate-500 pt-0.5" style={{ transform: `rotate(${angle}deg)` }}>
+                                        <span style={{ transform: `rotate(-${angle}deg)` }}>{val === 0 ? '60' : val}</span>
+                                    </div>
+                                );
+                            })}
+                            
+                            <div 
+                                style={{ 
+                                    width: `${innerDiameter}px`, 
+                                    height: `${innerDiameter}px`,
+                                    background: `conic-gradient(#ef4444 0deg, #ef4444 ${degrees}deg, #f1f5f9 ${degrees}deg, #f1f5f9 360deg)` 
+                                }}
+                                className="rounded-full transition-all duration-1000" 
+                            />
+                            <div className="absolute w-3 h-3 rounded-full bg-slate-800 z-10 shadow"></div>
+                        </div>
+
+                        <div 
+                            style={{ fontSize: `${Math.round(22 * Math.max(0.8, scale))}px` }}
+                            className="font-bold tabular-nums text-slate-800 tracking-wider mb-1">
+                            {m}:{s}
+                        </div>
+
+                        <div className="flex gap-2 w-full mt-1">
+                            <button onClick={() => changeMins(-5)} className="flex-1 bg-slate-100 hover:bg-slate-200 py-1 rounded-lg font-bold text-xs text-slate-600">- 5m</button>
+                            <button onClick={() => changeMins(5)} className="flex-1 bg-slate-100 hover:bg-slate-200 py-1 rounded-lg font-bold text-xs text-slate-600">+ 5m</button>
+                            <button onClick={() => setIsRunning(!isRunning)} className={`flex-2 px-4 py-1 rounded-lg font-bold text-xs text-white shadow ${isRunning ? 'bg-amber-600' : 'bg-[#6F8166]'}`}>
+                                {isRunning ? 'Paus' : 'Start'}
+                            </button>
+                            <button onClick={() => { setIsRunning(false); setTimeLeft(totalSeconds); }} className="px-2 py-1 bg-slate-100 hover:bg-slate-200 rounded-lg text-xs font-bold text-slate-600">
+                                🔄
+                            </button>
+                        </div>
+                    </div>
+                );
+            };
+
+            // 4. Bildstöd
+            const BildstodContent = ({ size, data, setData, isSelected }) => {
+                const [isEditing, setIsEditing] = useState(false);
+
+                const presetLibrary = [
+                    { icon: '👂', label: 'Lyssna' },
+                    { icon: '📖', label: 'Läsa' },
+                    { icon: '✍️', label: 'Skriva' },
+                    { icon: '👀', label: 'Titta' },
+                    { icon: '🗣️', label: 'Samtala' },
+                    { icon: '👥', label: 'Grupparbete' },
+                    { icon: '👫', label: 'Pararbete' },
+                    { icon: '💻', label: 'Dator' },
+                    { icon: '🎨', label: 'Skapa' },
+                    { icon: '✂️', label: 'Klippa' },
+                    { icon: '📐', label: 'Räkna' },
+                    { icon: '🙋', label: 'Räck upp hand' },
+                    { icon: '🤫', label: 'Tyst' },
+                    { icon: '🥪', label: 'Äta' },
+                    { icon: '🧹', label: 'Städa' }
+                ];
+
+                const scale = Math.max(0.6, Math.min((size?.w || 320) / 320, (size?.h || 340) / 340));
+
+                return (
+                    <div className="flex flex-col items-center justify-between h-full relative">
+                        {isSelected && (
+                            <div className="absolute top-0 right-0 z-20">
+                                <button onClick={() => setIsEditing(!isEditing)} className="text-xs bg-slate-100 hover:bg-slate-200 px-2.5 py-1 rounded-lg font-bold text-slate-600">
+                                    {isEditing ? 'Klar' : '⚙️ Ändra'}
+                                </button>
+                            </div>
+                        )}
+
+                        {isEditing ? (
+                            <div className="flex flex-col w-full h-full gap-2 pt-6">
+                                <div className="flex gap-2">
+                                    <input 
+                                        type="text" 
+                                        value={data.tag} 
+                                        onChange={e => setData({ ...data, tag: e.target.value })} 
+                                        className="w-20 p-1.5 border rounded-lg text-xs font-bold text-center" 
+                                        placeholder="T.ex. NU" 
+                                    />
+                                    <input 
+                                        type="text" 
+                                        value={data.label} 
+                                        onChange={e => setData({ ...data, label: e.target.value })} 
+                                        className="flex-1 p-1.5 border rounded-lg text-xs font-bold" 
+                                        placeholder="Textetikett" 
+                                    />
+                                </div>
+                                <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mt-1">Välj symbol:</div>
+                                <div className="flex-1 overflow-y-auto grid grid-cols-3 gap-2 custom-scrollbar p-1">
+                                    {presetLibrary.map((item, idx) => (
+                                        <button 
+                                            key={idx} 
+                                            onClick={() => { setData({ ...data, icon: item.icon, label: item.label }); setIsEditing(false); }}
+                                            className="flex flex-col items-center p-2 rounded-xl border border-slate-200 hover:bg-emerald-50 hover:border-[#6F8166] transition-all"
+                                        >
+                                            <span className="text-2xl">{item.icon}</span>
+                                            <span className="text-[10px] font-semibold text-slate-700 truncate w-full text-center">{item.label}</span>
+                                        </button>
+                                    ))}
+                                </div>
+                            </div>
+                        ) : (
+                            <div className="flex flex-col items-center justify-center flex-1 w-full gap-2 py-4">
+                                <span 
+                                    style={{ fontSize: `${Math.max(10, Math.round(12 * scale))}px` }}
+                                    className="font-bold text-slate-400 tracking-widest uppercase bg-slate-100 px-3 py-0.5 rounded-full">
+                                    {data.tag || 'NU'}
+                                </span>
+                                <div 
+                                    style={{ fontSize: `${Math.round(76 * scale)}px` }}
+                                    className="select-none filter drop-shadow my-2 leading-none">
+                                    {data.icon}
+                                </div>
+                                <h2 
+                                    style={{ fontSize: `${Math.round(32 * scale)}px` }}
+                                    className="font-extrabold text-[#283618] tracking-tight text-center leading-tight">
+                                    {data.label}
+                                </h2>
+                            </div>
+                        )}
+                    </div>
+                );
+            };
+
+            // 5. YouTube-video
+            const YouTubeContent = ({ url, setUrl, isSelected }) => {
+                const [inputVal, setInputVal] = useState(url || '');
+
+                const getYouTubeId = (input) => {
+                    if (!input) return null;
+                    const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|&v=|shorts\/)([^#&?]*).*/;
+                    const match = input.match(regExp);
+                    return (match && match[2].length === 11) ? match[2] : null;
+                };
+
+                const ytId = getYouTubeId(url);
+
+                return (
+                    <div className="flex flex-col h-full w-full">
+                        {!ytId ? (
+                            <div className="flex flex-col items-center justify-center h-full p-4 gap-3 text-center">
+                                <span className="text-4xl text-rose-500">▶️</span>
+                                <div className="text-sm font-bold text-slate-700">Klistra in länk till YouTube-video:</div>
+                                <input 
+                                    type="text" 
+                                    placeholder="https://www.youtube.com/watch?v=..." 
+                                    value={inputVal} 
+                                    onChange={e => setInputVal(e.target.value)}
+                                    className="w-full p-2 border border-slate-300 rounded-xl text-xs outline-none focus:border-[#6F8166]"
+                                />
+                                <button 
+                                    onClick={() => setUrl(inputVal.trim())}
+                                    className="bg-[#6F8166] hover:bg-[#5b6b54] text-white text-xs font-bold px-4 py-2 rounded-xl shadow"
+                                >
+                                    Visa video
+                                </button>
+                            </div>
+                        ) : (
+                            <div className="flex flex-col h-full relative">
+                                {isSelected && (
+                                    <div className="flex justify-between items-center bg-slate-50 px-2 py-1 rounded-lg mb-1">
+                                        <span className="text-[11px] font-bold text-slate-600">Inbäddad video</span>
+                                        <button onClick={() => setUrl('')} className="text-[10px] text-rose-600 hover:underline font-bold">Byt video</button>
+                                    </div>
+                                )}
+                                <div className="flex-1 w-full h-full rounded-xl overflow-hidden bg-black">
+                                    <iframe 
+                                        className="w-full h-full border-none"
+                                        src={`https://www.youtube-nocookie.com/embed/${ytId}?rel=0`} 
+                                        title="YouTube video" 
+                                        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" 
+                                        allowFullScreen
+                                    />
+                                </div>
+                            </div>
+                        )}
+                    </div>
+                );
+            };
+
+            // 6. Agenda (Endast en definition - med shrink-0 på papperskorgen och skalbar text)
             const AgendaWidgetContent = ({ size, items, setItems, isSelected }) => {
                 const iconList = ['📋', '📖', '✍️', '🗣️', '👥', '💻', '📐', '🎨', '🧪', '🎧', '🔔', '⭐', '🏃', '🥪', '❓'];
                 const [newItem, setNewItem] = useState('');
@@ -953,7 +1408,7 @@
                                     style={{ padding: `${itemPadding}px`, gap: `${itemGap}px` }}
                                     className={`flex items-center rounded-2xl border transition-all ${item.done ? 'bg-emerald-50/70 border-emerald-200' : 'bg-slate-50 border-slate-100 shadow-sm'}`}
                                 >
-                                    {/* Flytthandtag vid markering */}
+                                    {/* Flytthandtag */}
                                     {isSelected && (
                                         <div className="flex items-center gap-0.5 text-slate-400 shrink-0">
                                             <span style={{ fontSize: `${Math.max(12, Math.round(14 * scale * 0.8))}px` }} className="cursor-grab active:cursor-grabbing px-0.5 select-none" title="Dra för att ändra ordning">☰</span>
@@ -989,7 +1444,7 @@
                                         {item.icon}
                                     </button>
 
-                                    {/* Textfält med min-w-0 så det aldrig tränger undan papperskorgen */}
+                                    {/* Textfält med min-w-0 */}
                                     {isSelected ? (
                                         <input 
                                             type="text" 
@@ -1010,7 +1465,7 @@
                                         </span>
                                     )}
 
-                                    {/* Alltid synlig och lättillgänglig papperskorg */}
+                                    {/* Papperskorg med shrink-0 */}
                                     {isSelected && (
                                         <button 
                                             onClick={(e) => {
@@ -1057,6 +1512,319 @@
                                     className="flex-1 p-2 border rounded-xl outline-none focus:border-[#6F8166]" 
                                     placeholder="Ny aktivitet..." 
                                 />
+                            </div>
+                        )}
+                    </div>
+                );
+            };
+
+            // 7. Anteckningar
+            const NotesWidgetContent = ({ size, text, setText }) => {
+                const scale = Math.max(0.8, Math.min((size?.w || 380) / 380, (size?.h || 260) / 260));
+                return (
+                    <textarea 
+                        value={text} 
+                        onChange={e => setText(e.target.value)} 
+                        style={{ fontSize: `${Math.round(16 * scale)}px` }}
+                        className="w-full h-full resize-none outline-none p-2 text-slate-700 font-medium leading-relaxed" 
+                        placeholder="Skriv lektionsanteckningar här..."></textarea>
+                );
+            };
+
+            // 8. Tärning
+            const Die = ({ val, rolling, size }) => {
+                const dots = { 1: [4], 2: [2, 6], 3: [2, 4, 6], 4: [0, 2, 6, 8], 5: [0, 2, 4, 6, 8], 6: [0, 2, 3, 5, 6, 8] }[val] || [4];
+                return (
+                    <div 
+                        style={{ width: `${size}px`, height: `${size}px` }}
+                        className={`bg-white rounded-2xl shadow-md border border-slate-200 grid grid-cols-3 grid-rows-3 p-2.5 gap-1 transition-transform ${rolling ? 'animate-bounce' : ''}`}>
+                        {[...Array(9)].map((_, i) => (
+                            <div key={i} className={`rounded-full ${dots.includes(i) ? 'bg-slate-800' : 'bg-transparent'}`}></div>
+                        ))}
+                    </div>
+                );
+            };
+
+            const DiceWidgetContent = ({ size }) => {
+                const [count, setCount] = useState(2);
+                const [vals, setVals] = useState([3, 5]);
+                const [rolling, setRolling] = useState(false);
+
+                const roll = () => {
+                    if (rolling) return;
+                    setRolling(true);
+                    let times = 0;
+                    const interval = setInterval(() => {
+                        setVals(count === 1 ? [Math.floor(Math.random() * 6) + 1] : [Math.floor(Math.random() * 6) + 1, Math.floor(Math.random() * 6) + 1]);
+                        times++;
+                        if (times > 10) { clearInterval(interval); setRolling(false); }
+                    }, 50);
+                };
+
+                const sum = vals.reduce((a, b) => a + b, 0);
+                const dieSize = Math.max(48, Math.min(Math.round(64 * Math.min((size?.w || 280) / 280, (size?.h || 320) / 320)), 130));
+
+                return (
+                    <div className="flex flex-col items-center justify-between h-full py-1">
+                        <div className="flex bg-slate-100 p-1 rounded-xl">
+                            <button onClick={() => setCount(1)} className={`px-2.5 py-1 rounded-lg text-xs font-bold ${count === 1 ? 'bg-white text-slate-800 shadow-sm' : 'text-slate-400'}`}>1 st</button>
+                            <button onClick={() => setCount(2)} className={`px-2.5 py-1 rounded-lg text-xs font-bold ${count === 2 ? 'bg-white text-slate-800 shadow-sm' : 'text-slate-400'}`}>2 st</button>
+                        </div>
+                        <div className="flex items-center justify-center gap-3 py-2 flex-1">
+                            {vals.map((v, i) => <Die key={i} val={v} rolling={rolling} size={dieSize} />)}
+                        </div>
+                        {count === 2 && !rolling && (
+                            <div className="text-xs font-bold text-slate-600 bg-slate-100 px-3 py-1 rounded-full mb-1">
+                                Summa: <span className="text-[#6F8166] text-sm font-extrabold">{sum}</span>
+                            </div>
+                        )}
+                        <button onClick={roll} disabled={rolling} className="w-full bg-[#6F8166] hover:bg-[#5b6b54] text-white font-bold py-2 rounded-xl shadow text-xs">
+                            Kasta tärning
+                        </button>
+                    </div>
+                );
+            };
+
+            // 9. Arbetsform
+            const WorkFormatWidgetContent = ({ size, activeIdx, setActiveIdx, isSelected }) => {
+                const formats = [
+                    { icon: '🤫', title: 'Tyst arbete', sub: 'Fokusera & arbeta självständigt', color: 'from-blue-600 to-indigo-700' },
+                    { icon: '💬', title: 'Viskton', sub: 'Prata lågmält med bänkgrannen', color: 'from-[#6F8166] to-[#5b6b54]' },
+                    { icon: '👥', title: 'Fråga kompisen', sub: 'Hjälp varandra två och två', color: 'from-amber-500 to-orange-600' },
+                    { icon: '🤝', title: 'Samarbete', sub: 'Grupparbete & diskussion', color: 'from-purple-600 to-pink-600' }
+                ];
+                const current = formats[activeIdx] || formats[0];
+                const scale = Math.max(0.6, Math.min((size?.w || 330) / 330, (size?.h || 360) / 360));
+
+                return (
+                    <div className="flex flex-col h-full justify-between">
+                        <div className={`rounded-2xl p-4 text-white text-center shadow bg-gradient-to-br ${current.color} flex flex-col items-center justify-center flex-1 mb-2`}>
+                            <div style={{ fontSize: `${Math.round(52 * scale)}px` }} className="mb-1 filter drop-shadow leading-none">{current.icon}</div>
+                            <h2 style={{ fontSize: `${Math.round(22 * scale)}px` }} className="font-extrabold tracking-wide leading-tight">{current.title}</h2>
+                            <p style={{ fontSize: `${Math.max(10, Math.round(12 * scale))}px` }} className="text-white/90 font-medium">{current.sub}</p>
+                        </div>
+                        {isSelected && (
+                            <div className="grid grid-cols-2 gap-1.5">
+                                {formats.map((f, i) => (
+                                    <button 
+                                        key={i} 
+                                        onClick={() => setActiveIdx(i)}
+                                        className={`flex items-center gap-1.5 p-1.5 rounded-xl border text-[11px] font-bold ${activeIdx === i ? 'border-[#6F8166] bg-emerald-50 text-[#283618]' : 'border-slate-200 bg-white text-slate-600'}`}>
+                                        <span>{f.icon}</span>
+                                        <span className="truncate">{f.title}</span>
+                                    </button>
+                                ))}
+                            </div>
+                        )}
+                    </div>
+                );
+            };
+
+            // 10. Slumpa elev
+            const RandomizerWidgetContent = ({ size, namesText, setNamesText, chosen, setChosen, isSelected }) => {
+                const [remaining, setRemaining] = useState([]);
+                const [isSettings, setIsSettings] = useState(false);
+
+                const getList = () => namesText.split(',').map(n => n.trim()).filter(n => n);
+
+                const pick = () => {
+                    let pool = remaining.length > 0 ? remaining : getList();
+                    if (pool.length === 0) return;
+                    const pickedIndex = Math.floor(Math.random() * pool.length);
+                    const selected = pool[pickedIndex];
+                    setChosen(selected);
+                    setRemaining(pool.filter((_, idx) => idx !== pickedIndex));
+                };
+
+                const resetPool = () => { setRemaining(getList()); setChosen(null); };
+                const scale = Math.max(0.7, Math.min((size?.w || 320) / 320, (size?.h || 320) / 320));
+
+                return (
+                    <div className="flex flex-col h-full">
+                        {isSelected && (
+                            <div className="flex justify-end mb-1">
+                                <button onClick={() => setIsSettings(!isSettings)} className="text-[10px] bg-slate-100 px-2 py-1 rounded font-bold text-slate-600">
+                                    {isSettings ? 'Klar' : '⚙️ Redigera namn'}
+                                </button>
+                            </div>
+                        )}
+                        {isSettings ? (
+                            <div className="flex flex-col h-full gap-2">
+                                <textarea value={namesText} onChange={e => setNamesText(e.target.value)} className="flex-1 p-2 border rounded-xl text-xs" />
+                                <button onClick={() => { setIsSettings(false); resetPool(); }} className="bg-[#6F8166] text-white font-bold py-1.5 rounded-xl text-xs">Spara lista</button>
+                            </div>
+                        ) : (
+                            <div className="flex flex-col items-center justify-center flex-1 gap-3">
+                                <div 
+                                    style={{ fontSize: `${Math.round(26 * scale)}px` }}
+                                    className="font-extrabold text-center text-[#283618] bg-[#E4F0DF] w-full py-5 rounded-2xl shadow-inner min-h-[75px] flex items-center justify-center">
+                                    {chosen || 'Klicka på slumpa'}
+                                </div>
+                                <div className="text-[10px] text-slate-400 font-semibold">{remaining.length} elever kvar</div>
+                                <div className="flex gap-2 w-full">
+                                    <button onClick={pick} className="flex-1 bg-[#6F8166] hover:bg-[#5b6b54] text-white font-bold py-2 rounded-xl shadow text-sm">Slumpa!</button>
+                                    <button onClick={resetPool} title="Återställ" className="px-2.5 bg-slate-100 hover:bg-slate-200 rounded-xl font-bold text-xs">🔄</button>
+                                </div>
+                            </div>
+                        )}
+                    </div>
+                );
+            };
+
+            // 11. Gruppskapare
+            const GroupMakerWidgetContent = ({ size, names, setNames, groups, setGroups, numGroups, setNumGroups, isSelected }) => {
+                const generate = () => {
+                    let list = names.split(',').map(n => n.trim()).filter(n => n).sort(() => Math.random() - 0.5);
+                    let result = Array.from({length: numGroups}, () => []);
+                    list.forEach((name, i) => result[i % numGroups].push(name));
+                    setGroups(result);
+                };
+
+                return (
+                    <div className="flex flex-col h-full">
+                        {groups.length === 0 ? (
+                            <div className="flex flex-col h-full gap-2 justify-between">
+                                <label className="font-bold text-xs text-slate-700">Klasslista (kommatecken):</label>
+                                <textarea className="w-full h-24 border p-2 rounded-xl text-xs" value={names} onChange={e => setNames(e.target.value)}></textarea>
+                                <div className="flex justify-between items-center text-xs font-bold">
+                                    <span>Antal grupper:</span>
+                                    <span className="text-[#6F8166] text-base">{numGroups}</span>
+                                </div>
+                                <input type="range" min="2" max="8" value={numGroups} onChange={e => setNumGroups(Number(e.target.value))} className="w-full accent-[#6F8166]" />
+                                <button onClick={generate} className="bg-[#6F8166] hover:bg-[#5b6b54] text-white font-bold py-2 rounded-xl shadow text-xs">Slumpa Grupper</button>
+                            </div>
+                        ) : (
+                            <div className="flex flex-col h-full">
+                                {isSelected && (
+                                    <button onClick={() => setGroups([])} className="text-[#6F8166] underline mb-2 text-xs text-left font-bold">← Gör nya grupper</button>
+                                )}
+                                <div className="flex-1 overflow-y-auto grid grid-cols-2 gap-2 custom-scrollbar">
+                                    {groups.map((g, i) => (
+                                        <div key={i} className="bg-slate-50 p-2.5 rounded-xl border border-slate-200">
+                                            <div className="font-bold border-b pb-0.5 mb-1 text-xs text-[#283618]">Grupp {i+1}</div>
+                                            <ul className="text-xs space-y-0.5 text-slate-700">{g.map(n => <li key={n}>• {n}</li>)}</ul>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
+                    </div>
+                );
+            };
+
+            // 12. Incheckning
+            const CheckInWidgetContent = ({ size, boardId, baseUrl, question, setQuestion, active, setActive, isSelected }) => {
+                const [counts, setCounts] = useState({'🤩':0, '🙂':0, '😐':0, '😔':0});
+
+                useEffect(() => {
+                    if (!active || !window.firebaseApp.db) return;
+                    const qRef = window.firebaseApp.query(window.firebaseApp.collection(window.firebaseApp.db, "checkins"));
+                    const unsubscribe = window.firebaseApp.onSnapshot(qRef, (snapshot) => {
+                        let temp = {'🤩':0, '🙂':0, '😐':0, '😔':0};
+                        snapshot.docs.forEach(doc => {
+                            let d = doc.data();
+                            if(d.boardId === boardId && temp[d.emoji] !== undefined) temp[d.emoji]++;
+                        });
+                        setCounts(temp);
+                    });
+                    return () => unsubscribe();
+                }, [active]);
+
+                const qrDimension = Math.max(70, Math.min(Math.round((size?.w || 380) * 0.38), Math.round(((size?.h || 440) - 180)), 240));
+                const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=${qrDimension}x${qrDimension}&data=${encodeURIComponent(baseUrl + '?student=checkin&boardId=' + boardId + '&q=' + question)}`;
+
+                return (
+                    <div className="h-full">
+                        {!active ? (
+                            <div className="flex flex-col h-full gap-3 justify-center">
+                                <label className="font-bold text-xs text-slate-700">Fråga till eleverna:</label>
+                                <input value={question} onChange={e => setQuestion(e.target.value)} className="p-2 border rounded-xl text-sm" />
+                                <button onClick={() => setActive(true)} className="bg-[#6F8166] text-white py-2 rounded-xl font-bold text-xs shadow">Starta Incheckning</button>
+                            </div>
+                        ) : (
+                            <div className="flex flex-col items-center h-full gap-2 justify-between">
+                                <div className="flex justify-between items-center w-full">
+                                    <h3 className="font-bold text-xs text-slate-800 truncate">{question}</h3>
+                                    {isSelected && <button onClick={() => setActive(false)} className="text-[10px] text-[#6F8166] underline font-bold">Ändra</button>}
+                                </div>
+                                <div className="flex gap-3 items-end h-24 border-b w-full px-2 pt-1 flex-1">
+                                    {Object.keys(counts).map(emoji => {
+                                        let max = Math.max(...Object.values(counts), 1);
+                                        let h = (counts[emoji] / max) * 100;
+                                        return (
+                                            <div key={emoji} className="flex-1 flex flex-col items-center gap-0.5">
+                                                <div className="w-full bg-[#9CAE91] rounded-t transition-all" style={{height: `${h}%`}}></div>
+                                                <div className="text-xl">{emoji}</div>
+                                                <div className="text-[10px] font-bold text-slate-600">{counts[emoji]}</div>
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                                <div className="p-1.5 border border-dashed rounded-xl flex flex-col items-center bg-slate-50 mt-1">
+                                    <img 
+                                        src={qrUrl} 
+                                        style={{ width: `${qrDimension}px`, height: `${qrDimension}px` }}
+                                        alt="QR Kod" 
+                                    />
+                                </div>
+                            </div>
+                        )}
+                    </div>
+                );
+            };
+
+            // 13. Exit Ticket
+            const ExitTicketWidgetContent = ({ size, boardId, baseUrl, question, setQuestion, active, setActive, isSelected }) => {
+                const [tickets, setTickets] = useState([]);
+
+                useEffect(() => {
+                    if (!active || !window.firebaseApp.db) return;
+                    const qRef = window.firebaseApp.query(window.firebaseApp.collection(window.firebaseApp.db, "exittickets"));
+                    const unsubscribe = window.firebaseApp.onSnapshot(qRef, (snapshot) => {
+                        let temp = [];
+                        snapshot.docs.forEach(doc => {
+                            let d = doc.data();
+                            if(d.boardId === boardId) temp.push(d);
+                        });
+                        setTickets(temp);
+                    });
+                    return () => unsubscribe();
+                }, [active]);
+
+                const qrDimension = Math.max(48, Math.min(Math.round((size?.w || 500) * 0.16), 110));
+                const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=${qrDimension}x${qrDimension}&data=${encodeURIComponent(baseUrl + '?student=exitticket&boardId=' + boardId + '&q=' + question)}`;
+
+                return (
+                    <div className="h-full">
+                        {!active ? (
+                            <div className="flex flex-col h-full gap-3 justify-center">
+                                <label className="font-bold text-xs text-slate-700">Fråga (fritext):</label>
+                                <textarea value={question} onChange={e => setQuestion(e.target.value)} className="p-2 border rounded-xl text-xs h-20 resize-none"></textarea>
+                                <button onClick={() => setActive(true)} className="bg-amber-500 hover:bg-amber-600 text-white py-2 rounded-xl font-bold text-xs shadow">Starta Exit Ticket</button>
+                            </div>
+                        ) : (
+                            <div className="flex flex-col h-full">
+                                <div className="flex justify-between items-center bg-slate-50 p-2 rounded-xl mb-2 border">
+                                    <div className="font-bold text-xs text-slate-700 pr-2 truncate">{question}</div>
+                                    <div className="flex items-center gap-2">
+                                        {isSelected && <button onClick={() => setActive(false)} className="text-[10px] text-slate-500 underline">Ändra</button>}
+                                        <img 
+                                            src={qrUrl} 
+                                            style={{ width: `${qrDimension}px`, height: `${qrDimension}px` }}
+                                            className="border bg-white p-0.5 rounded shadow-sm" 
+                                            alt="QR Kod"
+                                        />
+                                    </div>
+                                </div>
+                                <div className="flex-1 overflow-y-auto grid grid-cols-2 gap-2 p-2 bg-slate-100 rounded-xl custom-scrollbar">
+                                    {tickets.length === 0 && <div className="col-span-2 text-center text-slate-400 mt-6 text-xs">Väntar på svar...</div>}
+                                    {tickets.map((t, i) => (
+                                        <div key={i} className="post-it rounded-lg">
+                                            <div className="font-bold text-[10px] border-b border-amber-300 pb-0.5 mb-1 text-slate-700">{t.name}</div>
+                                            <div className="text-xs text-slate-900 leading-snug">{t.text}</div>
+                                        </div>
+                                    ))}
+                                </div>
                             </div>
                         )}
                     </div>
